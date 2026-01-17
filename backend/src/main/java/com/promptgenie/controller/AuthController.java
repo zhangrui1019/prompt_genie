@@ -61,6 +61,7 @@ public class AuthController {
             throw new RuntimeException("Email already exists");
         }
         user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+        user.setApiKey(userService.generateApiKey());
         userService.save(user);
         return user;
     }

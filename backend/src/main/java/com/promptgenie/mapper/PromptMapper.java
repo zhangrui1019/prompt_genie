@@ -27,4 +27,14 @@ public interface PromptMapper extends BaseMapper<Prompt> {
     List<Prompt> selectByUserIdAndFilters(@Param("userId") Long userId,
                                           @Param("search") String search,
                                           @Param("tag") String tag);
+
+    @Select("<script>" +
+            "SELECT p.* FROM prompts p " +
+            "WHERE p.is_public = true " +
+            "<if test='search != null'>" +
+            "AND LOWER(p.title) LIKE LOWER(CONCAT('%', #{search}, '%')) " +
+            "</if>" +
+            "ORDER BY p.created_at DESC" +
+            "</script>")
+    List<Prompt> selectPublicPrompts(@Param("search") String search);
 }
