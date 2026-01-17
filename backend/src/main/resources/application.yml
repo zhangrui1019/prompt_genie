@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  sql:
+    init:
+      mode: always
+  application:
+    name: prompt-genie-backend
+  datasource:
+    url: jdbc:mysql://gz-cdb-fymdy539.sql.tencentcdb.com:25764/prompt_genie?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: Cdb@348#4
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: assign_id
+
+logging:
+  level:
+    com:
+      promptgenie: DEBUG
+
+jwt:
+  # In production, set these via environment variables:
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD:prompt-genie-secret-key}
