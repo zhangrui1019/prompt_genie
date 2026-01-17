@@ -30,6 +30,9 @@ jwt:
   secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
   expiration: ${JWT_EXPIRATION:86400000}
 
+dashscope:
+  api-key: sk-86a648a8ba4148019d316773e7fb8637
+
 jasypt:
   encryptor:
     password: ${JASYPT_ENCRYPTOR_PASSWORD:prompt-genie-secret-key}

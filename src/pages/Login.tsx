@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '@/lib/api';
+import { useAuthStore } from '@/store/authStore';
 
 export default function Login() {
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,9 +24,7 @@ export default function Login() {
       
       const { access_token, user } = response.data;
       
-      localStorage.setItem('access_token', access_token);
-      // Optionally store user info
-      localStorage.setItem('user', JSON.stringify(user));
+      login(user, access_token);
       
       console.log('Login successful', user);
       navigate('/dashboard');
