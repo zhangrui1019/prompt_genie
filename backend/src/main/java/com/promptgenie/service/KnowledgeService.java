@@ -56,6 +56,22 @@ public class KnowledgeService {
     }
 
     public Document uploadDocument(Long kbId, MultipartFile file) throws IOException {
+        // Validate file extension
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename != null) {
+            String extension = "";
+            int i = originalFilename.lastIndexOf('.');
+            if (i > 0) {
+                extension = originalFilename.substring(i + 1).toLowerCase();
+            }
+            
+            // Allowed extensions list
+            List<String> allowedExtensions = List.of("txt", "md", "json", "csv", "log");
+            if (!allowedExtensions.contains(extension)) {
+                throw new IOException("Unsupported file type: " + extension + ". Allowed: txt, md, json, csv, log");
+            }
+        }
+
         Document doc = new Document();
         doc.setKbId(kbId);
         doc.setFilename(file.getOriginalFilename());

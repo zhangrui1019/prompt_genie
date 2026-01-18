@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { promptService } from '@/lib/api';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
@@ -10,6 +10,9 @@ import BackButton from '@/components/BackButton';
 export default function Optimizer() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [prompt, setPrompt] = useState('');
   const [type, setType] = useState('clarity');
   const [loading, setLoading] = useState(false);
@@ -22,11 +25,23 @@ export default function Optimizer() {
   const [selectedPromptId, setSelectedPromptId] = useState('');
 
   useEffect(() => {
-    if (user?.id) {
-      promptService.getAll(user.id).then(setMyPrompts);
-      promptService.getTags(user.id).then(setAvailableTags);
-    }
-  }, [user?.id]);
+        if (user?.id) {
+            // Fix: Do not pass user.id as search parameter. Backend infers user from token.
+            promptService.getAll().then(setMyPrompts);
+            promptService.getTags().then(setAvailableTags);
+        }
+    }, [user?.id]);
+
+    useEffect(() => {
+        const promptId = searchParams.get('promptId');
+        const content = searchParams.get('content');
+
+        if (promptId) {
+            handleSelectPrompt(promptId);
+        } else if (content) {
+            setPrompt(content);
+        }
+    }, [searchParams, myPrompts]);
 
   const handleSelectPrompt = (promptId: string) => {
     setSelectedPromptId(promptId);
@@ -151,7 +166,22 @@ export default function Optimizer() {
                   </div>
                 )}
 
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                   <button 
+                     className="rounded border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-600 hover:bg-green-100 flex items-center gap-1"
+                     onClick={() => {
+                        setPrompt(result.optimizedPrompt);
+                        toast.success(t('optimizer.accepted'));
+                     }}
+                   >
+                     <span>✅</span> {t('optimizer.accept_button')}
+                   </button>
+                   <button 
+                     className="rounded border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-100 flex items-center gap-1"
+                     onClick={() => navigate(`/playground?content=${encodeURIComponent(result.optimizedPrompt)}${selectedPromptId ? `&promptId=${selectedPromptId}` : ''}`)}
+                   >
+                     <span>▶️</span> {t('optimizer.run_in_playground')}
+                   </button>
                    <button className="text-sm text-blue-600 hover:text-blue-800 font-medium" onClick={copyToClipboard}>
                      {t('optimizer.copy_clipboard')}
                    </button>

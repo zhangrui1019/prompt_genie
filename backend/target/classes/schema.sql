@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     api_key VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Prompts Table
 CREATE TABLE IF NOT EXISTS prompts (
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS prompts (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Prompt Versions Table
 CREATE TABLE IF NOT EXISTS prompt_versions (
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
     change_note VARCHAR(500),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Optimizations Table
 CREATE TABLE IF NOT EXISTS optimizations (
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS optimizations (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE SET NULL
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tags Table
 CREATE TABLE IF NOT EXISTS tags (
@@ -57,7 +57,7 @@ CREATE TABLE IF NOT EXISTS tags (
     name VARCHAR(50) NOT NULL,
     color VARCHAR(20),
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Prompt Chains Table
 CREATE TABLE IF NOT EXISTS prompt_chains (
@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS prompt_chains (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Chain Steps Table
 CREATE TABLE IF NOT EXISTS chain_steps (
@@ -80,9 +80,10 @@ CREATE TABLE IF NOT EXISTS chain_steps (
     model_type VARCHAR(20) DEFAULT 'text',
     model_name VARCHAR(50),
     parameters JSON,
+    input_mappings JSON,
     FOREIGN KEY (chain_id) REFERENCES prompt_chains(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Prompt Likes Table
 CREATE TABLE IF NOT EXISTS prompt_likes (
@@ -93,7 +94,7 @@ CREATE TABLE IF NOT EXISTS prompt_likes (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
     UNIQUE KEY uk_user_prompt (user_id, prompt_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Playground History Table
 CREATE TABLE IF NOT EXISTS playground_history (
@@ -110,7 +111,7 @@ CREATE TABLE IF NOT EXISTS playground_history (
     cost DECIMAL(10, 6) DEFAULT 0.0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Knowledge Bases Table
 CREATE TABLE IF NOT EXISTS knowledge_bases (
@@ -121,7 +122,7 @@ CREATE TABLE IF NOT EXISTS knowledge_bases (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Documents Table
 CREATE TABLE IF NOT EXISTS documents (
@@ -133,4 +134,43 @@ CREATE TABLE IF NOT EXISTS documents (
     file_size BIGINT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (kb_id) REFERENCES knowledge_bases(id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Comments Table
+CREATE TABLE IF NOT EXISTS comments (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    prompt_id BIGINT NOT NULL,
+    content TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Evaluation Jobs Table
+CREATE TABLE IF NOT EXISTS evaluation_jobs (
+    id BIGINT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    prompt_id BIGINT,
+    name VARCHAR(255),
+    status VARCHAR(50) NOT NULL, -- PENDING, RUNNING, COMPLETED, FAILED
+    dataset_path VARCHAR(512),
+    model_configs JSON,
+    evaluation_dimensions JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_user_id (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Evaluation Results Table
+CREATE TABLE IF NOT EXISTS evaluation_results (
+    id BIGINT PRIMARY KEY,
+    job_id BIGINT NOT NULL,
+    input_data JSON,
+    model_outputs JSON,
+    scores JSON,
+    latency BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_job_id (job_id),
+    FOREIGN KEY (job_id) REFERENCES evaluation_jobs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

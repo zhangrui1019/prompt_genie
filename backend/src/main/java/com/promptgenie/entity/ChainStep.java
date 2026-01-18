@@ -37,6 +37,10 @@ public class ChainStep {
     @TableField("parameters")
     private String parameters;
     
+    // JSON string for input variable mappings (e.g. {"prompt_var": "{{chain_var}}"})
+    @TableField("input_mappings")
+    private String inputMappings;
+    
     @TableField(exist = false)
     private Prompt prompt; // Loaded prompt details
 }

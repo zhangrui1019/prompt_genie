@@ -11,9 +11,16 @@ i18n
   .init({
     resources: {
       en: { translation: en },
-      zh: { translation: zh }
+      zh: { translation: zh },
+      'zh-CN': { translation: zh }
     },
-    fallbackLng: 'en',
+    fallbackLng: 'zh', // Default to Chinese for this demo
+    detection: {
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lang',
+      lookupLocalStorage: 'i18nextLng',
+      caches: ['localStorage']
+    },
     interpolation: {
       escapeValue: false
     }

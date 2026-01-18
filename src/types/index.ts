@@ -46,6 +46,7 @@ export interface ChainStep {
   modelType?: string;
   modelName?: string;
   parameters?: string;
+  inputMappings?: string; // JSON string e.g. '{"user_input": "{{summary}}"}'
   prompt?: Prompt;
 }
 

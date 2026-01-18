@@ -74,10 +74,15 @@ export default function Dashboard() {
                 <h3 className="font-bold text-lg text-gray-800">{t('common.chains')}</h3>
                 <p className="text-sm text-gray-500 mt-1">{t('dashboard.desc_chains')}</p>
             </Link>
+            <Link to="/evaluations" className="block p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition border border-transparent hover:border-pink-100 group">
+                <div className="text-3xl mb-3 group-hover:scale-110 transition-transform duration-200">📊</div>
+                <h3 className="font-bold text-lg text-gray-800">{t('evaluations.title')}</h3>
+                <p className="text-sm text-gray-500 mt-1">{t('evaluations.subtitle')}</p>
+            </Link>
             <Link to="/knowledge" className="block p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition border border-transparent hover:border-cyan-100 group">
                 <div className="text-3xl mb-3 group-hover:scale-110 transition-transform duration-200">📚</div>
-                <h3 className="font-bold text-lg text-gray-800">Knowledge Base</h3>
-                <p className="text-sm text-gray-500 mt-1">Manage private documents</p>
+                <h3 className="font-bold text-lg text-gray-800">{t('knowledge.title')}</h3>
+                <p className="text-sm text-gray-500 mt-1">{t('dashboard.desc_knowledge')}</p>
             </Link>
         </div>
 

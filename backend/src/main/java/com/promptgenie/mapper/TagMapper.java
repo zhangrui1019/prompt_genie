@@ -19,4 +19,12 @@ public interface TagMapper extends BaseMapper<Tag> {
     
     @Delete("DELETE FROM tags WHERE prompt_id = #{promptId}")
     void deleteByPromptId(@Param("promptId") Long promptId);
+
+    @Select("<script>" +
+            "SELECT * FROM tags WHERE prompt_id IN " +
+            "<foreach item='item' collection='promptIds' open='(' separator=',' close=')'>" +
+            "#{item}" +
+            "</foreach>" +
+            "</script>")
+    List<Tag> selectByPromptIds(@Param("promptIds") List<Long> promptIds);
 }

@@ -2,31 +2,36 @@ package com.promptgenie.controller;
 
 import com.promptgenie.entity.Prompt;
 import com.promptgenie.entity.PromptVersion;
+import com.promptgenie.dto.PromptRequest;
 import com.promptgenie.service.PromptService;
+import com.promptgenie.service.UserContextService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/prompts")
-@CrossOrigin(origins = "*") // Allow frontend access
 public class PromptController {
     
     @Autowired
     private PromptService promptService;
 
+    @Autowired
+    private UserContextService userContextService;
+
     @GetMapping
     public List<Prompt> getPrompts(
-            @RequestParam(required = false) Long userId, // In real app, get from auth context
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String tag) {
         
+        Long userId = userContextService.getCurrentUserId();
         if (userId == null) {
-            // Temporary: for testing, if no userId, return all (not secure but useful for dev)
-            // Or better, return empty or throw.
-             return promptService.list();
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
         
         if (search != null || tag != null) {
@@ -36,19 +41,32 @@ public class PromptController {
     }
     
     @GetMapping("/tags")
-    public List<String> getTags(@RequestParam Long userId) {
+    public List<String> getTags() {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
         return promptService.getAllTags(userId);
     }
 
     @GetMapping("/public")
     public List<Prompt> getPublicPrompts(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) Long userId) {
+            @RequestParam(required = false) String search) {
+        Long userId = userContextService.getCurrentUserId(); // Optional for public prompts
         return promptService.getPublicPrompts(search, userId);
     }
 
+    @GetMapping("/user/{userId}/public")
+    public List<Prompt> getUserPublicPrompts(@PathVariable Long userId) {
+        return promptService.getPublicPromptsByUser(userId);
+    }
+
     @PostMapping("/{id}/like")
-    public Map<String, Boolean> likePrompt(@PathVariable Long id, @RequestParam Long userId) {
+    public Map<String, Boolean> likePrompt(@PathVariable Long id) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
         boolean liked = promptService.toggleLike(id, userId);
         return Map.of("liked", liked);
     }
@@ -59,7 +77,11 @@ public class PromptController {
     }
 
     @PostMapping("/{id}/fork")
-    public Prompt forkPrompt(@PathVariable Long id, @RequestParam Long userId) {
+    public Prompt forkPrompt(@PathVariable Long id) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
         return promptService.forkPrompt(id, userId);
     }
 
@@ -80,7 +102,24 @@ public class PromptController {
     }
     
     @PostMapping
-    public Prompt createPrompt(@RequestBody Prompt prompt) {
+    public Prompt createPrompt(@Valid @RequestBody PromptRequest request) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
+        
+        Prompt prompt = new Prompt();
+        prompt.setUserId(userId);
+        prompt.setTitle(request.getTitle());
+        prompt.setContent(request.getContent());
+        prompt.setVariables(request.getVariables());
+        prompt.setTags(request.getTags());
+        if (request.getIsPublic() != null) {
+            prompt.setIsPublic(request.getIsPublic());
+        } else {
+            prompt.setIsPublic(false);
+        }
+        
         promptService.createPrompt(prompt);
         return prompt;
     }
@@ -91,14 +130,43 @@ public class PromptController {
     }
     
     @PutMapping("/{id}")
-    public Prompt updatePrompt(@PathVariable Long id, @RequestBody Prompt prompt) {
-        prompt.setId(id);
-        promptService.updatePrompt(prompt);
-        return prompt;
+    public Prompt updatePrompt(@PathVariable Long id, @Valid @RequestBody PromptRequest request) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
+        
+        Prompt existing = promptService.getById(id);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found");
+        }
+        
+        if (!existing.getUserId().equals(userId)) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your prompt");
+        }
+        
+        existing.setTitle(request.getTitle());
+        existing.setContent(request.getContent());
+        existing.setVariables(request.getVariables());
+        existing.setTags(request.getTags());
+        if (request.getIsPublic() != null) {
+            existing.setIsPublic(request.getIsPublic());
+        }
+        
+        promptService.updatePrompt(existing);
+        return existing;
     }
     
     @DeleteMapping("/{id}")
     public void deletePrompt(@PathVariable Long id) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
+        Prompt existing = promptService.getById(id);
+        if (existing != null && !existing.getUserId().equals(userId)) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your prompt");
+        }
         promptService.removeById(id);
     }
 }

@@ -21,7 +21,7 @@ export default function ChainsList() {
   const fetchChains = async () => {
     try {
       if (!user?.id) return;
-      const data = await promptService.getChains(user.id);
+      const data = await promptService.getChains();
       setChains(data);
     } catch (err) {
       console.error('Failed to fetch chains', err);
@@ -72,10 +72,12 @@ export default function ChainsList() {
                 <p className="text-gray-600 text-sm mb-4 line-clamp-2">{chain.description || 'No description'}</p>
                 <div className="flex justify-between items-center mt-4">
                   <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium">
-                    {/* We don't have step count in basic entity unless we fetch details, but let's assume API returns it or we just link */}
                     Workflow
                   </span>
                   <div className="flex gap-2">
+                    <Link to={`/chains/${chain.id}/run`} className="text-green-600 hover:text-green-800 font-bold text-sm flex items-center gap-1">
+                        <span>▶️</span> {t('common.run')}
+                    </Link>
                     <Link to={`/chains/${chain.id}`} className="text-blue-600 hover:text-blue-800 font-medium text-sm">{t('common.edit')}</Link>
                     <button onClick={() => handleDelete(chain.id)} className="text-red-600 hover:text-red-800 font-medium text-sm">{t('common.delete')}</button>
                   </div>

@@ -7,10 +7,16 @@ spring:
       mode: always
   application:
     name: prompt-genie-backend
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
   datasource:
-    url: jdbc:mysql://gz-cdb-fymdy539.sql.tencentcdb.com:25764/prompt_genie?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: Cdb@348#4
+    url: ${DB_URL:jdbc:mysql://gz-cdb-fymdy539.sql.tencentcdb.com:25764/prompt_genie?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:Cdb@348#4}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
 mybatis-plus:
@@ -31,8 +37,33 @@ jwt:
   expiration: ${JWT_EXPIRATION:86400000}
 
 dashscope:
-  api-key: sk-86a648a8ba4148019d316773e7fb8637
+  api-key: ${DASHSCOPE_API_KEY:sk-86a648a8ba4148019d316773e7fb8637}
+
+genie:
+  dashscope:
+    video-submit-url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
+    task-status-url: "https://dashscope.aliyuncs.com/api/v1/tasks/"
+    pricing:
+      text:
+        qwen-turbo:
+          input: 0.002
+          output: 0.006
+        qwen-plus:
+          input: 0.004
+          output: 0.012
+        qwen-max:
+          input: 0.04
+          output: 0.12
+      image:
+        wanx-v1: 0.2
+      video:
+        default: 2.0
 
 jasypt:
   encryptor:
     password: ${JASYPT_ENCRYPTOR_PASSWORD:prompt-genie-secret-key}
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB

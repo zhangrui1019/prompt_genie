@@ -122,7 +122,35 @@ public class ChainService extends ServiceImpl<PromptChainMapper, PromptChain> {
                     String modelType = step.getModelType() != null ? step.getModelType() : "text";
                     String modelName = step.getModelName();
                     
-                    String output = playgroundService.runPrompt(prompt.getContent(), new HashMap<>(currentVariables), modelType, modelName, params);
+                    // Prepare variables for this step
+                    Map<String, Object> stepVariables = new HashMap<>(currentVariables);
+
+                    // Apply Input Mappings
+                    if (step.getInputMappings() != null && !step.getInputMappings().isEmpty()) {
+                        try {
+                            Map<String, String> mappings = objectMapper.readValue(step.getInputMappings(), Map.class);
+                            for (Map.Entry<String, String> mapping : mappings.entrySet()) {
+                                String targetKey = mapping.getKey(); // e.g., "user_input"
+                                String sourceValue = mapping.getValue(); // e.g., "{{summary}}" or "static value"
+                                
+                                if (sourceValue != null && sourceValue.startsWith("{{") && sourceValue.endsWith("}}")) {
+                                    // Extract variable name: {{summary}} -> summary
+                                    String sourceVarName = sourceValue.substring(2, sourceValue.length() - 2).trim();
+                                    Object val = currentVariables.get(sourceVarName);
+                                    if (val != null) {
+                                        stepVariables.put(targetKey, val);
+                                    }
+                                } else {
+                                    // Static value
+                                    stepVariables.put(targetKey, sourceValue);
+                                }
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+
+                    String output = playgroundService.runPrompt(prompt.getContent(), stepVariables, modelType, modelName, params);
                     
                     Map<String, Object> stepResult = new HashMap<>();
                     stepResult.put("step", step.getStepOrder());

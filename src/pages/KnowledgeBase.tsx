@@ -45,7 +45,7 @@ export default function KnowledgeBase() {
       const docs = await promptService.getDocuments(kbId);
       setDocuments(docs);
     } catch (error) {
-      toast.error('Failed to load documents');
+      toast.error(t('knowledge.load_doc_error'));
     }
   };
 
@@ -89,8 +89,10 @@ export default function KnowledgeBase() {
       await promptService.uploadDocument(selectedKb.id, file);
       toast.success(t('knowledge.upload_success'));
       loadDocuments(selectedKb.id);
-    } catch (error) {
-      toast.error(t('knowledge.upload_error'));
+    } catch (error: any) {
+      console.error(error);
+      const msg = error.response?.data?.message || t('knowledge.upload_error');
+      toast.error(msg);
     } finally {
       setUploading(false);
       // Reset input
@@ -178,6 +180,7 @@ export default function KnowledgeBase() {
                         accept=".txt,.md,.json,.csv,.log" 
                       />
                     </label>
+                    <p className="text-xs text-gray-400 mt-1 text-right">{t('knowledge.supported_formats')}</p>
                   </div>
                 </div>
 
@@ -233,7 +236,7 @@ export default function KnowledgeBase() {
                   className="w-full border rounded p-2"
                   value={newName}
                   onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. Project Docs"
+                  placeholder={t('knowledge.name_placeholder')}
                 />
               </div>
               <div>
@@ -242,7 +245,7 @@ export default function KnowledgeBase() {
                   className="w-full border rounded p-2"
                   value={newDesc}
                   onChange={e => setNewDesc(e.target.value)}
-                  placeholder="Optional description"
+                  placeholder={t('knowledge.desc_placeholder')}
                 />
               </div>
               <div className="flex justify-end gap-2 mt-6">

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Prompt, CreatePromptDto, UpdatePromptDto, PromptVersion, User, PromptChain } from '@/types';
+import toast from 'react-hot-toast';
 
 const api = axios.create({
   baseURL: '/api', // Proxy will handle this or full URL
@@ -26,6 +27,8 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const message = error.response?.data?.message || error.message || 'An unexpected error occurred';
+
     if (error.response && error.response.status === 401) {
       // Clear token and user data
       localStorage.removeItem('access_token');
@@ -34,16 +37,20 @@ api.interceptors.response.use(
       // Redirect to login if not already there
       if (window.location.pathname !== '/') {
         window.location.href = '/';
+        toast.error('Session expired. Please login again.');
       }
+    } else {
+        // Show toast for other errors, avoiding duplicate toasts if possible?
+        // For now, just show it.
+        toast.error(message);
     }
     return Promise.reject(error);
   }
 );
 
 export const promptService = {
-  getAll: async (userId?: string, search?: string, tag?: string) => {
+  getAll: async (search?: string, tag?: string) => {
     const params: Record<string, any> = {};
-    if (userId) params.userId = userId;
     if (search) params.search = search;
     if (tag) params.tag = tag;
     
@@ -57,7 +64,9 @@ export const promptService = {
   },
 
   create: async (data: CreatePromptDto) => {
-    const response = await api.post<Prompt>('/prompts', data);
+    // Remove userId if it was accidentally passed in data, backend handles it
+    const { userId, ...rest } = data as any; 
+    const response = await api.post<Prompt>('/prompts', rest);
     return response.data;
   },
 
@@ -70,18 +79,18 @@ export const promptService = {
     await api.delete(`/prompts/${id}`);
   },
 
-  getTags: async (userId: string) => {
-    const response = await api.get<string[]>('/prompts/tags', { params: { userId } });
+  getTags: async () => {
+    const response = await api.get<string[]>('/prompts/tags');
     return response.data;
   },
 
-  getPublic: async (search?: string, userId?: string) => {
-    const response = await api.get<Prompt[]>('/prompts/public', { params: { search, userId } });
+  getPublic: async (search?: string) => {
+    const response = await api.get<Prompt[]>('/prompts/public', { params: { search } });
     return response.data;
   },
 
-  like: async (promptId: string, userId: string) => {
-    const response = await api.post<{ liked: boolean }>(`/prompts/${promptId}/like`, null, { params: { userId } });
+  like: async (promptId: string) => {
+    const response = await api.post<{ liked: boolean }>(`/prompts/${promptId}/like`);
     return response.data;
   },
 
@@ -89,8 +98,8 @@ export const promptService = {
     await api.post(`/prompts/${promptId}/use`);
   },
 
-  fork: async (promptId: string, userId: string) => {
-    const response = await api.post<Prompt>(`/prompts/${promptId}/fork`, null, { params: { userId } });
+  fork: async (promptId: string) => {
+    const response = await api.post<Prompt>(`/prompts/${promptId}/fork`);
     return response.data;
   },
 
@@ -100,8 +109,8 @@ export const promptService = {
   },
 
   // Chains
-  getChains: async (userId: string) => {
-    const response = await api.get<PromptChain[]>('/chains', { params: { userId } });
+  getChains: async () => {
+    const response = await api.get<PromptChain[]>('/chains');
     return response.data;
   },
 
@@ -129,8 +138,30 @@ export const promptService = {
     return response.data;
   },
 
+  // Comments
+  getComments: async (promptId: string) => {
+    const response = await api.get<any[]>(`/prompts/${promptId}/comments`);
+    return response.data;
+  },
+
+  addComment: async (promptId: string, content: string) => {
+    const response = await api.post<any>(`/prompts/${promptId}/comments`, { content });
+    return response.data;
+  },
+
   getVersions: async (promptId: string) => {
     const response = await api.get<PromptVersion[]>(`/prompts/${promptId}/versions`);
+    return response.data;
+  },
+
+  // Users
+  getPublicProfile: async (userId: string) => {
+    const response = await api.get<{ id: string; name: string; plan: string; createdAt: string }>(`/users/${userId}/profile`);
+    return response.data;
+  },
+
+  getUserPublicPrompts: async (userId: string) => {
+    const response = await api.get<Prompt[]>(`/prompts/user/${userId}/public`);
     return response.data;
   },
 
@@ -201,6 +232,42 @@ export const promptService = {
 
   deleteDocument: async (docId: string) => {
     await api.delete(`/knowledge/documents/${docId}`);
+  },
+
+  // Evaluations
+  createEvaluation: async (
+    name: string, 
+    promptId: string, 
+    file: File, 
+    modelConfigs: any[], 
+    evaluationDimensions: string[]
+  ) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('name', name);
+    formData.append('promptId', promptId);
+    formData.append('modelConfigs', JSON.stringify(modelConfigs));
+    formData.append('evaluationDimensions', JSON.stringify(evaluationDimensions));
+    
+    const response = await api.post<any>('/evaluations/create', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  getEvaluations: async () => {
+    const response = await api.get<any[]>('/evaluations/my');
+    return response.data;
+  },
+
+  getEvaluation: async (id: string) => {
+    const response = await api.get<any>(`/evaluations/${id}`);
+    return response.data;
+  },
+
+  getEvaluationResults: async (id: string) => {
+    const response = await api.get<any[]>(`/evaluations/${id}/results`);
+    return response.data;
   }
 };
 

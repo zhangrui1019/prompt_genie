@@ -1,5 +1,8 @@
 package com.promptgenie.controller;
 
+import com.promptgenie.service.UserContextService;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import com.promptgenie.entity.PromptChain;
 import com.promptgenie.service.ChainService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,8 +19,15 @@ public class ChainController {
     @Autowired
     private ChainService chainService;
 
+    @Autowired
+    private UserContextService userContextService;
+
     @GetMapping
-    public List<PromptChain> getChains(@RequestParam Long userId) {
+    public List<PromptChain> getChains() {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
         return chainService.getUserChains(userId);
     }
 
@@ -28,6 +38,11 @@ public class ChainController {
 
     @PostMapping
     public PromptChain createChain(@RequestBody PromptChain chain) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
+        chain.setUserId(userId);
         return chainService.createChain(chain);
     }
 

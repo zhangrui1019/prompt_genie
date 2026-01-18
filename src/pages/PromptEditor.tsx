@@ -8,6 +8,8 @@ import BackButton from '@/components/BackButton';
 
 import { Tag, PromptVersion } from '@/types';
 
+import MarkdownEditor from '@uiw/react-markdown-editor';
+
 export default function PromptEditor() {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
@@ -65,29 +67,29 @@ export default function PromptEditor() {
 
   const handleCreateVersion = async () => {
     if (!id) return;
-    const note = prompt('Enter a note for this version (optional):');
+    const note = prompt(t('editor.enter_note'));
     if (note === null) return; // Cancelled
     
     try {
       await promptService.createVersion(id, note);
-      toast.success('Version saved!');
+      toast.success(t('editor.version_saved'));
       fetchVersions(id);
     } catch (err) {
-      toast.error('Failed to save version');
+      toast.error(t('editor.version_save_failed'));
     }
   };
 
   const handleRestoreVersion = async (versionId: string) => {
-    if (!id || !confirm('Are you sure? Current content will be overwritten (a backup version will be created).')) return;
+    if (!id || !confirm(t('editor.restore_confirm'))) return;
     
     try {
       const updatedPrompt = await promptService.restoreVersion(id, versionId);
       setTitle(updatedPrompt.title);
       setContent(updatedPrompt.content);
-      toast.success('Restored successfully!');
+      toast.success(t('editor.restored_success'));
       fetchVersions(id);
     } catch (err) {
-      toast.error('Failed to restore version');
+      toast.error(t('editor.restore_failed'));
     }
   };
 
@@ -99,7 +101,7 @@ export default function PromptEditor() {
       const result = await promptService.runPlayground(content, testVariables);
       setPlaygroundOutput(result.result);
     } catch (err) {
-      setPlaygroundOutput('Error running prompt. Please check your network or API configuration.');
+      setPlaygroundOutput(t('playground.error_msg'));
       console.error(err);
     } finally {
       setIsRunning(false);
@@ -120,7 +122,7 @@ export default function PromptEditor() {
       }
     } catch (err) {
       console.error('Failed to fetch prompt', err);
-      setError('Failed to load prompt details.');
+      setError(t('editor.prompt_load_failed'));
     } finally {
       setInitialLoading(false);
     }
@@ -169,7 +171,7 @@ export default function PromptEditor() {
         await promptService.update(id, { title, content, variables: variablesObj, tags, isPublic });
       } else {
         if (!user?.id) {
-            setError('User not identified. Please login again.');
+            setError(t('editor.user_not_identified'));
             return;
         }
         await promptService.create({ 
@@ -177,16 +179,15 @@ export default function PromptEditor() {
             content,
             variables: variablesObj,
             tags,
-            isPublic,
-            userId: user.id
+            isPublic
         });
       }
-      toast.success(isEditing ? 'Prompt updated' : 'Prompt created');
+      toast.success(isEditing ? t('editor.prompt_updated') : t('editor.prompt_created'));
       navigate('/prompts');
     } catch (err) {
       console.error('Failed to save prompt', err);
-      setError('Failed to save prompt.');
-      toast.error('Failed to save prompt.');
+      setError(t('editor.save_failed'));
+      toast.error(t('editor.save_failed'));
     } finally {
       setLoading(false);
     }
@@ -214,12 +215,12 @@ export default function PromptEditor() {
                 </button>
                 {isEditing && (
                     <button
-                        type="button"
-                        onClick={() => setSidebarMode(sidebarMode === 'history' ? 'none' : 'history')}
-                        className={`text-sm font-medium px-3 py-1 rounded border ${sidebarMode === 'history' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                    >
-                        History
-                    </button>
+                    type="button"
+                    onClick={() => setSidebarMode(sidebarMode === 'history' ? 'none' : 'history')}
+                    className={`text-sm font-medium px-3 py-1 rounded border ${sidebarMode === 'history' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                >
+                    {t('editor.version_history')}
+                </button>
                 )}
                 <label className="flex items-center cursor-pointer">
                     <div className="relative">
@@ -249,7 +250,7 @@ export default function PromptEditor() {
                 className="w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none focus:shadow-outline"
                 id="title"
                 type="text"
-                placeholder="e.g. Email Summarizer"
+                placeholder={t('editor.title_placeholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -277,7 +278,7 @@ export default function PromptEditor() {
                 <input
                 type="text"
                 className="w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none focus:shadow-outline"
-                placeholder="Type tag and press Enter"
+                placeholder={t('editor.tag_placeholder')}
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyDown={handleAddTag}
@@ -288,35 +289,36 @@ export default function PromptEditor() {
                 <label className="mb-2 block text-sm font-bold text-gray-700" htmlFor="content">
                 {t('editor.content_label')}
                 </label>
-                <textarea
-                className="h-64 w-full appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none focus:shadow-outline font-mono"
-                id="content"
-                placeholder="Enter your prompt here..."
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                required
-                />
+                <div className="border rounded-md overflow-hidden shadow-sm">
+                  <MarkdownEditor
+                    value={content}
+                    onChange={(value) => setContent(value)}
+                    height="400px"
+                    enableScroll={true}
+                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}
+                  />
+                </div>
                 <p className="mt-1 text-xs text-gray-500">
-                Tip: You can use variables like {'{{variable_name}}'} in your prompt.
+                {t('editor.variable_tip')}
                 </p>
             </div>
 
             <div className="mb-6">
                 <label className="mb-2 block text-sm font-bold text-gray-700">
-                {t('editor.variables_label')} (Default Values)
+                {t('editor.variables_label')} ({t('editor.default_values')})
                 </label>
                 {variables.map((variable, index) => (
                 <div key={index} className="mb-2 flex gap-2">
                     <input
                     type="text"
-                    placeholder="Key (e.g. topic)"
+                    placeholder={t('editor.variable_key_placeholder')}
                     className="flex-1 appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none focus:shadow-outline"
                     value={variable.key}
                     onChange={(e) => handleVariableChange(index, 'key', e.target.value)}
                     />
                     <input
                     type="text"
-                    placeholder="Default Value"
+                    placeholder={t('editor.variable_value_placeholder')}
                     className="flex-1 appearance-none rounded border px-3 py-2 leading-tight text-gray-700 shadow focus:outline-none focus:shadow-outline"
                     value={variable.value}
                     onChange={(e) => handleVariableChange(index, 'value', e.target.value)}
@@ -349,7 +351,7 @@ export default function PromptEditor() {
                     onClick={handleCreateVersion}
                     className="rounded border border-green-600 px-4 py-2 font-bold text-green-600 hover:bg-green-50"
                     >
-                    Save Version
+                    {t('editor.save_version')}
                     </button>
                 )}
                 <button
@@ -357,7 +359,7 @@ export default function PromptEditor() {
                 type="submit"
                 disabled={loading}
                 >
-                {loading ? 'Saving...' : t('editor.save_button')}
+                {loading ? t('editor.saving') : t('editor.save_button')}
                 </button>
             </div>
             </form>
@@ -367,13 +369,13 @@ export default function PromptEditor() {
         {sidebarMode !== 'none' && (
             <div className="rounded-lg bg-white p-6 shadow h-fit max-h-[800px] overflow-y-auto flex flex-col">
                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-bold">{sidebarMode === 'history' ? 'Version History' : t('playground.title')}</h2>
+                    <h2 className="text-xl font-bold">{sidebarMode === 'history' ? t('editor.version_history') : t('playground.title')}</h2>
                     <button onClick={() => setSidebarMode('none')} className="text-gray-400 hover:text-gray-600">&times;</button>
                 </div>
 
                 {sidebarMode === 'history' && (
                     versions.length === 0 ? (
-                        <p className="text-gray-500 text-sm">No history yet. Save a version to start tracking.</p>
+                        <p className="text-gray-500 text-sm">{t('editor.no_history')}</p>
                     ) : (
                         <div className="space-y-4">
                             {versions.map(v => (
@@ -388,7 +390,7 @@ export default function PromptEditor() {
                                         onClick={() => handleRestoreVersion(v.id)}
                                         className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded w-full"
                                     >
-                                        Restore this version
+                                        {t('editor.restore_version')}
                                     </button>
                                 </div>
                             ))}
@@ -427,7 +429,11 @@ export default function PromptEditor() {
                         </button>
 
                         <div className="flex-1 min-h-[200px] bg-gray-50 rounded border p-3 text-sm font-mono whitespace-pre-wrap overflow-auto">
-                            {playgroundOutput || <span className="text-gray-400 italic">{t('playground.output_label')}...</span>}
+                            {isRunning ? (
+                                <span className="text-gray-400 italic">{t('playground.running')}...</span>
+                            ) : (
+                                playgroundOutput || <span className="text-gray-400 italic">{t('playground.output_label')}...</span>
+                            )}
                         </div>
                     </div>
                 )}

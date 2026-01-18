@@ -37,11 +37,23 @@ public class OptimizationService {
     private Map<String, Object> callDashScope(String prompt, String type) throws NoApiKeyException, InputRequiredException {
         Generation gen = new Generation();
         
-        String systemPrompt = "You are an expert Prompt Engineer. Your task is to optimize the user's prompt based on the requested goal: " + type + ". " +
-                "You must return the response in a structured format containing the optimized prompt and a list of improvements made. " +
-                "Output format should be roughly:\n" +
-                "Optimized Prompt: [The optimized text]\n" +
-                "Suggestions: \n- [Point 1]\n- [Point 2]";
+        String systemPrompt = "You are an expert Prompt Engineer. Your task is to REWRITE and OPTIMIZE the user's prompt to achieve better performance on LLMs.\n" +
+                "Optimization Goal: " + type + ".\n\n" +
+                "Guidelines:\n" +
+                "1. Structure: Use clear sections (e.g., # Role, # Context, # Task, # Constraints, # Output Format).\n" +
+                "2. Clarity: Remove ambiguity and use precise action verbs.\n" +
+                "3. Enhancement: Add necessary context or few-shot examples placeholders if helpful.\n" +
+                "4. Language: The optimized prompt MUST be in the SAME LANGUAGE as the user's original prompt.\n" +
+                "5. Content: Do not just copy the original. You must improve it significantly while keeping the core intent.\n\n" +
+                "Output Format:\n" +
+                "Please strictly follow this format:\n" +
+                "---OPTIMIZED_PROMPT_START---\n" +
+                "(Put the optimized prompt content here)\n" +
+                "---OPTIMIZED_PROMPT_END---\n" +
+                "---SUGGESTIONS_START---\n" +
+                "- (Suggestion 1)\n" +
+                "- (Suggestion 2)\n" +
+                "---SUGGESTIONS_END---";
 
         Message systemMsg = Message.builder().role(Role.SYSTEM.getValue()).content(systemPrompt).build();
         Message userMsg = Message.builder().role(Role.USER.getValue()).content(prompt).build();
@@ -64,28 +76,48 @@ public class OptimizationService {
         String optimizedPrompt = "";
         List<String> suggestions = new ArrayList<>();
 
-        // Simple parsing logic assuming the model follows instructions roughly
-        // Looking for "Optimized Prompt:" and "Suggestions:" markers
-        
-        String[] parts = content.split("Suggestions:", 2);
-        
-        if (parts.length > 0) {
-            optimizedPrompt = parts[0].replace("Optimized Prompt:", "").trim();
-        }
-        
-        if (parts.length > 1) {
-            String suggestionsText = parts[1].trim();
-            String[] lines = suggestionsText.split("\n");
-            for (String line : lines) {
-                line = line.trim();
-                if (line.startsWith("-") || line.startsWith("*") || line.matches("^\\d+\\..*")) {
-                    suggestions.add(line.replaceAll("^[-*\\d.]+\\s*", ""));
+        // Robust parsing using markers
+        try {
+            if (content.contains("---OPTIMIZED_PROMPT_START---") && content.contains("---OPTIMIZED_PROMPT_END---")) {
+                int start = content.indexOf("---OPTIMIZED_PROMPT_START---") + "---OPTIMIZED_PROMPT_START---".length();
+                int end = content.indexOf("---OPTIMIZED_PROMPT_END---");
+                optimizedPrompt = content.substring(start, end).trim();
+            }
+
+            if (content.contains("---SUGGESTIONS_START---") && content.contains("---SUGGESTIONS_END---")) {
+                int start = content.indexOf("---SUGGESTIONS_START---") + "---SUGGESTIONS_START---".length();
+                int end = content.indexOf("---SUGGESTIONS_END---");
+                String suggestionsText = content.substring(start, end).trim();
+                
+                String[] lines = suggestionsText.split("\n");
+                for (String line : lines) {
+                    line = line.trim();
+                    if (!line.isEmpty()) {
+                        suggestions.add(line.replaceAll("^[-*\\d.]+\\s*", ""));
+                    }
                 }
             }
+        } catch (Exception e) {
+            System.err.println("Error parsing optimization response: " + e.getMessage());
         }
         
+        // Fallback to old parsing or raw content if markers are missing
         if (optimizedPrompt.isEmpty()) {
-            optimizedPrompt = content; // Fallback if parsing fails
+             // ... existing fallback logic or just use content ...
+             // Let's try to salvage whatever we can if markers failed but content exists
+             if (content.contains("Optimized Prompt:")) {
+                 String[] parts = content.split("Suggestions:", 2);
+                 optimizedPrompt = parts[0].replace("Optimized Prompt:", "").replace("---OPTIMIZED_PROMPT_START---", "").trim();
+                 if (parts.length > 1) {
+                     // parse suggestions
+                     String[] lines = parts[1].split("\n");
+                     for (String line : lines) {
+                         if (line.trim().startsWith("-")) suggestions.add(line.trim().substring(1).trim());
+                     }
+                 }
+             } else {
+                 optimizedPrompt = content; // Worst case
+             }
         }
 
         response.put("optimizedPrompt", optimizedPrompt);

@@ -26,7 +26,7 @@ export default function PromptsList() {
   const fetchTags = async () => {
     if (!user?.id) return;
     try {
-      const tags = await promptService.getTags(user.id);
+      const tags = await promptService.getTags();
       setAvailableTags(tags);
     } catch (err) {
       console.error('Failed to fetch tags', err);
@@ -36,7 +36,7 @@ export default function PromptsList() {
   const fetchPrompts = async () => {
     try {
       if (!user?.id) return;
-      const data = await promptService.getAll(user.id, search, tagFilter);
+      const data = await promptService.getAll(search, tagFilter);
       setPrompts(data);
     } catch (err: any) {
       console.error('Failed to fetch prompts', err);
@@ -148,22 +148,36 @@ export default function PromptsList() {
                 <div className="mb-4 text-xs text-gray-400">
                   {t('prompts.updated', { date: new Date(prompt.updatedAt || prompt.createdAt).toLocaleDateString(i18n.language) })}
                 </div>
-                <div className="mt-auto flex gap-2">
+                <div className="mt-auto grid grid-cols-2 gap-2">
+                  <Link
+                    to={`/playground?promptId=${prompt.id}`}
+                    className="col-span-1 rounded bg-blue-50 border border-blue-200 px-2 py-1.5 text-center text-sm font-semibold text-blue-700 hover:bg-blue-100 flex items-center justify-center gap-1"
+                     title={t('common.run')}
+                   >
+                     <span>▶️</span> {t('common.run')}
+                   </Link>
+                   <Link
+                     to={`/optimizer?promptId=${prompt.id}`}
+                     className="col-span-1 rounded bg-purple-50 border border-purple-200 px-2 py-1.5 text-center text-sm font-semibold text-purple-700 hover:bg-purple-100 flex items-center justify-center gap-1"
+                     title={t('common.optimize')}
+                   >
+                      <span>✨</span> {t('common.optimize')}
+                   </Link>
                   <Link
                     to={`/batch?promptId=${prompt.id}`}
-                    className="flex-1 rounded border border-green-200 px-3 py-1.5 text-center text-sm font-semibold text-green-700 hover:bg-green-50"
+                    className="col-span-1 rounded border border-green-200 px-2 py-1.5 text-center text-sm font-semibold text-green-700 hover:bg-green-50"
                   >
                     {t('common.batch_run')}
                   </Link>
                   <Link
                     to={`/prompts/${prompt.id}`}
-                    className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                    className="col-span-1 rounded border border-gray-300 px-2 py-1.5 text-center text-sm font-semibold text-gray-700 hover:bg-gray-50"
                   >
                     {t('common.edit')}
                   </Link>
                   <button
                     onClick={() => handleDelete(prompt.id)}
-                    className="rounded border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
+                    className="col-span-2 rounded border border-red-200 px-2 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
                   >
                     {t('common.delete')}
                   </button>

@@ -37,4 +37,7 @@ public interface PromptMapper extends BaseMapper<Prompt> {
             "ORDER BY p.created_at DESC" +
             "</script>")
     List<Prompt> selectPublicPrompts(@Param("search") String search);
+
+    @Select("SELECT * FROM prompts WHERE user_id = #{userId} AND is_public = true ORDER BY created_at DESC")
+    List<Prompt> selectPublicPromptsByUserId(@Param("userId") Long userId);
 }
