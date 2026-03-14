@@ -4,10 +4,13 @@ import { toast } from 'react-hot-toast';
 import { promptService } from '@/lib/api';
 import BackButton from '@/components/BackButton';
 import { useAuthStore } from '@/store/authStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
+import { Dialog } from '@headlessui/react';
 
 export default function KnowledgeBase() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
+  const { workspaces, currentWorkspace } = useWorkspaceStore();
   
   const [kbs, setKbs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,22 +25,45 @@ export default function KnowledgeBase() {
   // Upload State
   const [uploading, setUploading] = useState(false);
 
+  // Move State
+  const [moveKbId, setMoveKbId] = useState<string | null>(null);
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('');
+
   useEffect(() => {
     if (user?.id) {
       loadKbs();
     }
-  }, [user?.id]);
+  }, [user?.id, currentWorkspace]);
 
   const loadKbs = async () => {
     setLoading(true);
     try {
+      // TODO: Backend filter by workspaceId
       const data = await promptService.getKnowledgeBases();
-      setKbs(data);
+      const filtered = data.filter((kb: any) => {
+          if (currentWorkspace) return kb.workspaceId === currentWorkspace.id;
+          return !kb.workspaceId;
+      });
+      setKbs(filtered);
     } catch (error) {
       toast.error(t('knowledge.created_error'));
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMove = async () => {
+      if (!moveKbId || !targetWorkspaceId) return;
+      try {
+          await promptService.moveKnowledgeBase(moveKbId, targetWorkspaceId);
+          toast.success('Knowledge Base moved successfully');
+          setMoveKbId(null);
+          setTargetWorkspaceId('');
+          loadKbs();
+      } catch (err: any) {
+          console.error(err);
+          toast.error('Failed to move KB');
+      }
   };
 
   const loadDocuments = async (kbId: string) => {
@@ -139,20 +165,30 @@ export default function KnowledgeBase() {
                 <div className="space-y-2">
                   {kbs.map(kb => (
                     <div 
-                      key={kb.id}
+                      key={kb.id} 
+                      className={`p-4 rounded border cursor-pointer hover:border-blue-300 transition ${selectedKb?.id === kb.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                       onClick={() => handleSelectKb(kb)}
-                      className={`p-3 rounded border cursor-pointer transition flex justify-between items-center group ${selectedKb?.id === kb.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}
                     >
-                      <div>
-                        <div className="font-semibold text-gray-800">{kb.name}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[150px]">{kb.description}</div>
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-gray-800">{kb.name}</h3>
+                        <div className="flex gap-1">
+                            {!currentWorkspace && (
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); setMoveKbId(kb.id); setTargetWorkspaceId(workspaces[0]?.id || ''); }} 
+                                    className="text-orange-500 hover:text-orange-700 text-xs px-2 py-1 rounded hover:bg-orange-50"
+                                >
+                                    Move
+                                </button>
+                            )}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteKb(kb.id); }} 
+                                className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50"
+                            >
+                                Delete
+                            </button>
+                        </div>
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteKb(kb.id); }}
-                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition"
-                      >
-                        &times;
-                      </button>
+                      <p className="text-sm text-gray-500 line-clamp-2">{kb.description || 'No description'}</p>
                     </div>
                   ))}
                 </div>
@@ -267,6 +303,38 @@ export default function KnowledgeBase() {
           </div>
         </div>
       )}
+
+      {/* Move Dialog */}
+      <Dialog open={!!moveKbId} onClose={() => setMoveKbId(null)} className="relative z-50">
+          <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+              <Dialog.Panel className="w-full max-w-sm rounded bg-white p-6 shadow-xl">
+                  <Dialog.Title className="text-lg font-bold mb-4">Move Knowledge Base to Workspace</Dialog.Title>
+                  <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Select Target Workspace</label>
+                      <select 
+                          className="w-full border rounded px-3 py-2"
+                          value={targetWorkspaceId}
+                          onChange={e => setTargetWorkspaceId(e.target.value)}
+                      >
+                          {workspaces.map(ws => (
+                              <option key={ws.id} value={ws.id}>{ws.name}</option>
+                          ))}
+                      </select>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                      <button onClick={() => setMoveKbId(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                      <button 
+                          onClick={handleMove} 
+                          disabled={!targetWorkspaceId}
+                          className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50"
+                      >
+                          Move
+                      </button>
+                  </div>
+              </Dialog.Panel>
+          </div>
+      </Dialog>
     </div>
   );
 }

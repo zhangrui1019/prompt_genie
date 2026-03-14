@@ -19,6 +19,7 @@ import KnowledgeBase from "@/pages/KnowledgeBase";
 import EvaluationList from "@/pages/EvaluationList";
 import EvaluationCreate from "@/pages/EvaluationCreate";
 import EvaluationReport from "@/pages/EvaluationReport";
+import WorkspaceSettings from "@/pages/WorkspaceSettings";
 import { useAuthStore } from "@/store/authStore";
 
 import { Toaster } from 'react-hot-toast';
@@ -57,6 +58,7 @@ export default function App() {
         <Route path="/evaluations" element={<EvaluationList />} />
         <Route path="/evaluations/new" element={<EvaluationCreate />} />
         <Route path="/evaluations/:id" element={<EvaluationReport />} />
+        <Route path="/workspace/:id/settings" element={<WorkspaceSettings />} />
       </Routes>
     </Router>
   );

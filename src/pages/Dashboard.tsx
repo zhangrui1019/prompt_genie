@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
 import { promptService } from '@/lib/api';
 import { Prompt } from '@/types';
+import WorkspaceSwitcher from '@/components/WorkspaceSwitcher';
 
 export default function Dashboard() {
   const user = useAuthStore((state) => state.user);
@@ -27,6 +28,9 @@ export default function Dashboard() {
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-8 flex items-center justify-between">
           <div>
+            <div className="mb-2">
+                <WorkspaceSwitcher />
+            </div>
             <h1 className="text-3xl font-bold text-gray-900">
               {t('dashboard.welcome', { name: user?.name || 'User' })}
             </h1>

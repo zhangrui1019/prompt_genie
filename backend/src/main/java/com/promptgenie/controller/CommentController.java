@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/prompts")
+@CrossOrigin(origins = "*")
 public class CommentController {
 
     @Autowired

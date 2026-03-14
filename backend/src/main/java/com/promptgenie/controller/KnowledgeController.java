@@ -5,6 +5,7 @@ import com.promptgenie.entity.KnowledgeBase;
 import com.promptgenie.entity.User;
 import com.promptgenie.service.KnowledgeService;
 import com.promptgenie.service.UserService;
+import com.promptgenie.service.WorkspaceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -32,7 +33,37 @@ public class KnowledgeController {
         Long userId = getCurrentUserId();
         if (userId == null) return List.of();
         return knowledgeService.getUserKnowledgeBases(userId);
+        @Autowired
+    private WorkspaceService workspaceService;
+
+    @PutMapping("/{id}/move")
+    public void moveKb(@PathVariable Long id, @RequestBody Map<String, Long> request) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+        }
+        
+        Long targetWorkspaceId = request.get("workspaceId");
+        if (targetWorkspaceId == null) {
+             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target workspace ID required");
+        }
+        
+        KnowledgeBase kb = knowledgeService.getById(id);
+        if (kb == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        
+        // 1. Check ownership
+        if (!kb.getUserId().equals(userId)) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can move this KB");
+        }
+        
+        // 2. Check write access to target workspace
+        if (!workspaceService.hasAccess(userId, targetWorkspaceId, "editor")) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't have write access to the target workspace");
+        }
+        
+        knowledgeService.moveKbToWorkspace(id, targetWorkspaceId);
     }
+}
 
     @PostMapping
     public KnowledgeBase createKnowledgeBase(@RequestBody Map<String, String> request) {

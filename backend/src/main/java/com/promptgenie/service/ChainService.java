@@ -46,6 +46,19 @@ public class ChainService extends ServiceImpl<PromptChainMapper, PromptChain> {
     }
 
     @Transactional
+    public void moveChainToWorkspace(Long chainId, Long targetWorkspaceId) {
+        PromptChain chain = getById(chainId);
+        if (chain != null) {
+            chain.setWorkspaceId(targetWorkspaceId);
+            updateById(chain);
+        }
+    }
+
+    public Object executeChainGraph(PromptChain chain, Map<String, Object> initialVariables) {
+        return null;
+    }
+
+    @Transactional
     public PromptChain createChain(PromptChain chain) {
         save(chain);
         if (chain.getSteps() != null) {

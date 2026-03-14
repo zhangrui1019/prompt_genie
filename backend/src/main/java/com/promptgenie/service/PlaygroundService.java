@@ -50,7 +50,11 @@ public class PlaygroundService {
                 String kbIdStr = String.valueOf(parameters.get("kbId"));
                 if (!kbIdStr.isEmpty()) {
                     Long kbId = Long.parseLong(kbIdStr);
-                    String context = knowledgeService.getKnowledgeContext(kbId);
+                    // Get userId from context if not provided
+                    if (userId == null) {
+                        userId = -1L; // Treat as anonymous/free
+                    }
+                    String context = knowledgeService.getKnowledgeContext(kbId, userId, finalPrompt);
                     if (context != null && !context.isEmpty()) {
                         finalPrompt = "You have access to the following knowledge base documents:\n\n" + context + "\n\nUser Query/Prompt:\n" + finalPrompt;
                     }
@@ -67,9 +71,9 @@ public class PlaygroundService {
 
         try {
             GenerationStrategy strategy = strategies.stream()
-                .filter(s -> s.supports(modelType))
+                .filter(s -> s.supports(modelType, modelName))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unsupported model type: " + modelType));
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported model type: " + modelType + " / model: " + modelName));
 
             GenerationOutput output = strategy.generate(finalPrompt, modelName, parameters);
             result = output.getContent();

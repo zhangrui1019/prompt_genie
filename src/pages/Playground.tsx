@@ -9,24 +9,6 @@ import BackButton from '@/components/BackButton';
 
 import MarkdownEditor from '@uiw/react-markdown-editor';
 
-// Models configuration (names are product names, usually kept as is, but can be translated if needed)
-const MODELS: Record<string, { id: string; name: string }[]> = {
-  text: [
-    { id: 'qwen-turbo', name: 'Qwen Turbo' },
-    { id: 'qwen-plus', name: 'Qwen Plus' },
-    { id: 'qwen-max', name: 'Qwen Max' },
-  ],
-  image: [
-    { id: 'wanx-v1', name: 'Wanx V1' },
-    { id: 'wanx-sketch-to-image-v1', name: 'Wanx Sketch' },
-  ],
-  video: [
-    { id: 'wan2.6-t2v', name: 'Wan 2.6 (1080P)' },
-    { id: 'wanx2.1-t2v-turbo', name: 'Wanx 2.1 Turbo (720P)' },
-    { id: 'wanx2.1-t2v-plus', name: 'Wanx 2.1 Plus (720P)' },
-  ],
-};
-
 export default function Playground() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
@@ -39,6 +21,7 @@ export default function Playground() {
   
   // Settings State
   const [mode, setMode] = useState('text');
+  const [modelCatalog, setModelCatalog] = useState<Record<string, { id: string; name: string }[]>>({});
   const [selectedModels, setSelectedModels] = useState<string[]>(['qwen-turbo']);
 
   // Configuration (Moved inside component or wrapped to use t)
@@ -86,6 +69,7 @@ export default function Playground() {
             promptService.getAll().then(setMyPrompts);
             promptService.getTags().then(setAvailableTags);
             promptService.getKnowledgeBases().then(setKnowledgeBases);
+            promptService.getModelCatalog().then(setModelCatalog);
         }
     }, [user?.id]);
 
@@ -134,11 +118,16 @@ export default function Playground() {
   };
 
   useEffect(() => {
-      if (MODELS[mode] && MODELS[mode].length > 0) {
-          setSelectedModels([MODELS[mode][0].id]);
+      const available = modelCatalog[mode];
+      if (available && available.length > 0) {
+          setSelectedModels(prev => {
+              if (prev.length === 0) return [available[0].id];
+              const allExist = prev.every(id => available.some(m => m.id === id));
+              return allExist ? prev : [available[0].id];
+          });
           setResults({});
       }
-  }, [mode]);
+  }, [mode, modelCatalog]);
 
   useEffect(() => {
       if (user?.id && showHistory) {
@@ -583,7 +572,7 @@ export default function Playground() {
                      <div className="flex gap-4 items-center">
                          <span className="text-sm font-bold text-gray-500 uppercase">{t('common.models')}:</span>
                          <div className="flex gap-2">
-                             {MODELS[mode]?.map(m => (
+                             {modelCatalog[mode]?.map(m => (
                                  <button
                                     key={m.id}
                                     onClick={() => toggleModel(m.id)}
@@ -621,7 +610,7 @@ export default function Playground() {
              <div className={`grid gap-4 flex-1 ${selectedModels.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
                  {selectedModels.map(modelId => {
                      const result = results[modelId];
-                     const modelName = MODELS[mode]?.find(m => m.id === modelId)?.name || modelId;
+                     const modelName = modelCatalog[mode]?.find(m => m.id === modelId)?.name || modelId;
                      
                      return (
                          <div key={modelId} className="bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col overflow-hidden h-[600px]">

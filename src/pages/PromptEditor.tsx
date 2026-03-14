@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { promptService } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import BackButton from '@/components/BackButton';
+import * as Diff from 'diff';
 
 import { Tag, PromptVersion } from '@/types';
 
@@ -30,6 +31,7 @@ export default function PromptEditor() {
   // Version Control
   const [versions, setVersions] = useState<PromptVersion[]>([]);
   const [sidebarMode, setSidebarMode] = useState<'none' | 'history' | 'playground'>('none');
+  const [compareVersionId, setCompareVersionId] = useState<string | null>(null);
   
   // Playground
   const [playgroundOutput, setPlaygroundOutput] = useState('');
@@ -64,6 +66,15 @@ export default function PromptEditor() {
       console.error('Failed to fetch versions', err);
     }
   };
+
+  const diffResult = useMemo(() => {
+    if (!compareVersionId || !versions.length) return null;
+    const v = versions.find(v => v.id === compareVersionId);
+    if (!v) return null;
+    
+    // Compare current editor content with selected version content
+    return Diff.diffLines(v.content, content);
+  }, [content, compareVersionId, versions]);
 
   const handleCreateVersion = async () => {
     if (!id) return;
@@ -289,14 +300,33 @@ export default function PromptEditor() {
                 <label className="mb-2 block text-sm font-bold text-gray-700" htmlFor="content">
                 {t('editor.content_label')}
                 </label>
-                <div className="border rounded-md overflow-hidden shadow-sm">
-                  <MarkdownEditor
-                    value={content}
-                    onChange={(value) => setContent(value)}
-                    height="400px"
-                    enableScroll={true}
-                    style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}
-                  />
+                <div className="border rounded-md overflow-hidden shadow-sm relative">
+                  {diffResult ? (
+                    <div className="absolute inset-0 bg-white z-10 p-4 overflow-auto border-l-4 border-yellow-400">
+                        <div className="flex justify-between items-center mb-4 sticky top-0 bg-white pb-2 border-b">
+                            <h3 className="font-bold text-gray-800">Version Diff (v{versions.find(v => v.id === compareVersionId)?.versionNumber} vs Current)</h3>
+                            <button onClick={() => setCompareVersionId(null)} type="button" className="text-gray-500 hover:text-gray-700">Close Diff</button>
+                        </div>
+                        <div className="font-mono text-sm whitespace-pre-wrap">
+                            {diffResult.map((part, index) => (
+                                <span 
+                                    key={index} 
+                                    className={part.added ? 'bg-green-100 text-green-800' : part.removed ? 'bg-red-100 text-red-800 decoration-line-through' : 'text-gray-600'}
+                                >
+                                    {part.value}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                  ) : (
+                    <MarkdownEditor
+                      value={content}
+                      onChange={(value) => setContent(value)}
+                      height="400px"
+                      enableScroll={true}
+                      style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}
+                    />
+                  )}
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                 {t('editor.variable_tip')}
@@ -378,20 +408,27 @@ export default function PromptEditor() {
                         <p className="text-gray-500 text-sm">{t('editor.no_history')}</p>
                     ) : (
                         <div className="space-y-4">
-                            {versions.map(v => (
-                                <div key={v.id} className="border-b border-gray-100 pb-3 last:border-0">
+                            {versions.map((v) => (
+                                <div key={v.id} className={`border rounded p-3 text-sm relative ${compareVersionId === v.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
                                     <div className="flex justify-between items-start mb-1">
                                         <span className="font-bold text-gray-800">v{v.versionNumber}</span>
-                                        <span className="text-xs text-gray-500">{new Date(v.createdAt).toLocaleDateString()}</span>
+                                        <span className="text-xs text-gray-500">{new Date(v.createdAt).toLocaleString()}</span>
                                     </div>
-                                    {v.changeNote && <p className="text-xs text-gray-600 italic mb-2">"{v.changeNote}"</p>}
-                                    <div className="text-xs text-gray-400 mb-2 line-clamp-2">{v.content.substring(0, 100)}...</div>
-                                    <button
-                                        onClick={() => handleRestoreVersion(v.id)}
-                                        className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded w-full"
-                                    >
-                                        {t('editor.restore_version')}
-                                    </button>
+                                    <p className="text-gray-600 mb-2 italic">{v.changeNote || 'No note'}</p>
+                                    <div className="flex space-x-2 mt-2">
+                                        <button
+                                            onClick={() => handleRestoreVersion(v.id)}
+                                            className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded flex-1"
+                                        >
+                                            {t('editor.restore_version')}
+                                        </button>
+                                        <button
+                                            onClick={() => setCompareVersionId(compareVersionId === v.id ? null : v.id)}
+                                            className={`text-xs px-2 py-1 rounded flex-1 ${compareVersionId === v.id ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                        >
+                                            {compareVersionId === v.id ? 'Hide Diff' : 'Diff'}
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

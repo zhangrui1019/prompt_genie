@@ -18,13 +18,20 @@ public class PromptChain {
     @TableField("user_id")
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
-
+    
+    private Long workspaceId;
+    
     private String title;
     
     private String description;
 
+    // Legacy linear steps (keeping for backwards compatibility)
     @TableField(exist = false)
     private List<ChainStep> steps = new ArrayList<>();
+
+    // React Flow visual data
+    private String reactFlowNodes; // JSON string
+    private String reactFlowEdges; // JSON string
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;

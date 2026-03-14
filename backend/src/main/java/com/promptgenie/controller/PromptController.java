@@ -5,6 +5,7 @@ import com.promptgenie.entity.PromptVersion;
 import com.promptgenie.dto.PromptRequest;
 import com.promptgenie.service.PromptService;
 import com.promptgenie.service.UserContextService;
+import com.promptgenie.service.WorkspaceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpStatus;
@@ -24,20 +25,70 @@ public class PromptController {
     @Autowired
     private UserContextService userContextService;
 
+    @Autowired
+    private WorkspaceService workspaceService;
+
     @GetMapping
-    public List<Prompt> getPrompts(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String tag) {
-        
+    public List<Prompt> getAll(@RequestParam(required = false) Long workspaceId) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+            @PutMapping("/{id}/move")
+    public void movePrompt(@PathVariable Long id, @RequestBody Map<String, Long> request) {
+        Long userId = userContextService.getCurrentUserId();
+        if (userId == null) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
+            @PostMapping("/{id}/fork")
+    public Prompt forkPrompt(@PathVariable Long id, @RequestBody Map<String, Long> request) {
         Long userId = userContextService.getCurrentUserId();
         if (userId == null) {
              throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
         
-        if (search != null || tag != null) {
-            return promptService.searchPrompts(userId, search, tag);
+        Long targetWorkspaceId = request.get("workspaceId");
+        // targetWorkspaceId can be null (fork to personal)
+        
+        if (targetWorkspaceId != null) {
+             if (!workspaceService.hasAccess(userId, targetWorkspaceId, "editor")) {
+                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Write access denied to target workspace");
+             }
         }
-        return promptService.getPromptsByUser(userId);
+        
+        return promptService.forkPrompt(id, userId, targetWorkspaceId);
+    }
+}
+        
+        Long targetWorkspaceId = request.get("workspaceId");
+        if (targetWorkspaceId == null) {
+             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Target workspace ID required");
+        }
+        
+        Prompt prompt = promptService.getById(id);
+        if (prompt == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        
+        // 1. Check ownership (must be owner of the prompt)
+        if (!prompt.getUserId().equals(userId)) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can move this prompt");
+        }
+        
+        // 2. Check write access to target workspace
+        if (!workspaceService.hasAccess(userId, targetWorkspaceId, "editor")) {
+             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You don't have write access to the target workspace");
+        }
+        
+        promptService.movePromptToWorkspace(id, targetWorkspaceId);
+    }
+}
+        
+        if (workspaceId != null) {
+            // RBAC check
+            if (!workspaceService.hasAccess(userId, workspaceId, "viewer")) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied to workspace");
+            }
+            return promptService.getByWorkspaceId(workspaceId);
+        }
+        
+        return promptService.getAll(userId);
     }
     
     @GetMapping("/tags")
@@ -102,59 +153,66 @@ public class PromptController {
     }
     
     @PostMapping
-    public Prompt createPrompt(@Valid @RequestBody PromptRequest request) {
+    public Prompt createPrompt(@RequestBody Prompt prompt) {
         Long userId = userContextService.getCurrentUserId();
         if (userId == null) {
              throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
         
-        Prompt prompt = new Prompt();
-        prompt.setUserId(userId);
-        prompt.setTitle(request.getTitle());
-        prompt.setContent(request.getContent());
-        prompt.setVariables(request.getVariables());
-        prompt.setTags(request.getTags());
-        if (request.getIsPublic() != null) {
-            prompt.setIsPublic(request.getIsPublic());
-        } else {
-            prompt.setIsPublic(false);
+        if (prompt.getWorkspaceId() != null) {
+            if (!workspaceService.hasAccess(userId, prompt.getWorkspaceId(), "editor")) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Write access denied to workspace");
+            }
         }
         
-        promptService.createPrompt(prompt);
-        return prompt;
+        prompt.setUserId(userId);
+        return promptService.createPrompt(prompt);
     }
     
     @GetMapping("/{id}")
     public Prompt getPrompt(@PathVariable Long id) {
-        return promptService.getById(id);
+        Long userId = userContextService.getCurrentUserId();
+        Prompt prompt = promptService.getById(id);
+        
+        if (prompt == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found");
+        }
+        
+        // RBAC Check
+        if (prompt.getWorkspaceId() != null) {
+             if (userId != null && workspaceService.hasAccess(userId, prompt.getWorkspaceId(), "viewer")) {
+                 return prompt;
+             }
+        }
+        
+        if (prompt.getIsPublic() || (userId != null && prompt.getUserId().equals(userId))) {
+            return prompt;
+        }
+        
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
     }
     
     @PutMapping("/{id}")
-    public Prompt updatePrompt(@PathVariable Long id, @Valid @RequestBody PromptRequest request) {
+    public Prompt updatePrompt(@PathVariable Long id, @RequestBody Prompt prompt) {
         Long userId = userContextService.getCurrentUserId();
         if (userId == null) {
              throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
         
         Prompt existing = promptService.getById(id);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Prompt not found");
-        }
+        if (existing == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         
-        if (!existing.getUserId().equals(userId)) {
+        // RBAC
+        if (existing.getWorkspaceId() != null) {
+             if (!workspaceService.hasAccess(userId, existing.getWorkspaceId(), "editor")) {
+                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Write access denied to workspace");
+             }
+        } else if (!existing.getUserId().equals(userId)) {
              throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your prompt");
         }
-        
-        existing.setTitle(request.getTitle());
-        existing.setContent(request.getContent());
-        existing.setVariables(request.getVariables());
-        existing.setTags(request.getTags());
-        if (request.getIsPublic() != null) {
-            existing.setIsPublic(request.getIsPublic());
-        }
-        
-        promptService.updatePrompt(existing);
-        return existing;
+
+        prompt.setId(id);
+        return promptService.updatePrompt(prompt);
     }
     
     @DeleteMapping("/{id}")
@@ -163,10 +221,19 @@ public class PromptController {
         if (userId == null) {
              throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found");
         }
+        
         Prompt existing = promptService.getById(id);
-        if (existing != null && !existing.getUserId().equals(userId)) {
-             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your prompt");
+        if (existing != null) {
+            // RBAC
+            if (existing.getWorkspaceId() != null) {
+                 if (!workspaceService.hasAccess(userId, existing.getWorkspaceId(), "owner")) { // Only owner can delete
+                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Delete access denied to workspace");
+                 }
+            } else if (!existing.getUserId().equals(userId)) {
+                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not your prompt");
+            }
         }
+        
         promptService.removeById(id);
     }
 }

@@ -83,8 +83,12 @@ public class TextGenerationStrategy implements GenerationStrategy {
     }
 
     @Override
-    public boolean supports(String modelType) {
-        return "text".equalsIgnoreCase(modelType);
+    public boolean supports(String modelType, String modelName) {
+        if (!"text".equalsIgnoreCase(modelType)) {
+            return false;
+        }
+        // Only support DashScope Qwen models or default
+        return modelName == null || modelName.isEmpty() || modelName.toLowerCase().startsWith("qwen-");
     }
 
     @Override

@@ -18,9 +18,10 @@ public interface GenerationStrategy {
      * Checks if this strategy supports the given model type.
      *
      * @param modelType The model type (text, image, video)
+     * @param modelName The specific model name
      * @return true if supported
      */
-    boolean supports(String modelType);
+    boolean supports(String modelType, String modelName);
 
     /**
      * Calculates the estimated cost of the generation.

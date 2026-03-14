@@ -59,8 +59,11 @@ public class ImageGenerationStrategy implements GenerationStrategy {
     }
 
     @Override
-    public boolean supports(String modelType) {
-        return "image".equalsIgnoreCase(modelType);
+    public boolean supports(String modelType, String modelName) {
+        if (!"image".equalsIgnoreCase(modelType)) {
+            return false;
+        }
+        return modelName == null || modelName.isEmpty() || modelName.toLowerCase().startsWith("wanx");
     }
 
     @Override
@@ -68,7 +71,12 @@ public class ImageGenerationStrategy implements GenerationStrategy {
         String name = modelName != null ? modelName.toLowerCase() : "wanx-v1";
         Map<String, Double> prices = genieConfig.getPricing().getImage();
         
-        Double pricePerImage = prices.getOrDefault(name, prices.get("wanx-v1"));
+        Double pricePerImage = null;
+        if (prices != null) {
+             pricePerImage = prices.get(name);
+             if (pricePerImage == null) pricePerImage = prices.get("wanx-v1");
+        }
+        
         if (pricePerImage == null) pricePerImage = 0.2;
 
         int n = 1;

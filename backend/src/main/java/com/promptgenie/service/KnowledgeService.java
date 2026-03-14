@@ -5,6 +5,10 @@ import com.promptgenie.entity.Document;
 import com.promptgenie.entity.KnowledgeBase;
 import com.promptgenie.mapper.DocumentMapper;
 import com.promptgenie.mapper.KnowledgeBaseMapper;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,6 +19,7 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +30,12 @@ public class KnowledgeService {
 
     @Autowired
     private DocumentMapper documentMapper;
+    
+    @Autowired
+    private VectorStore vectorStore;
+    
+    @Autowired
+    private QuotaService quotaService;
 
     public KnowledgeBase createKnowledgeBase(Long userId, String name, String description) {
         KnowledgeBase kb = new KnowledgeBase();
@@ -35,7 +46,14 @@ public class KnowledgeService {
         kb.setUpdatedAt(LocalDateTime.now());
         kbMapper.insert(kb);
         return kb;
+        public void moveKbToWorkspace(Long kbId, Long targetWorkspaceId) {
+        KnowledgeBase kb = kbMapper.selectById(kbId);
+        if (kb != null) {
+            kb.setWorkspaceId(targetWorkspaceId);
+            kbMapper.updateById(kb);
+        }
     }
+}
 
     public List<KnowledgeBase> getUserKnowledgeBases(Long userId) {
         QueryWrapper<KnowledgeBase> query = new QueryWrapper<>();
@@ -55,7 +73,7 @@ public class KnowledgeService {
         documentMapper.delete(query);
     }
 
-    public Document uploadDocument(Long kbId, MultipartFile file) throws IOException {
+    public com.promptgenie.entity.Document uploadDocument(Long kbId, MultipartFile file) throws IOException {
         // Validate file extension
         String originalFilename = file.getOriginalFilename();
         if (originalFilename != null) {
@@ -72,15 +90,13 @@ public class KnowledgeService {
             }
         }
 
-        Document doc = new Document();
+        com.promptgenie.entity.Document doc = new com.promptgenie.entity.Document();
         doc.setKbId(kbId);
         doc.setFilename(file.getOriginalFilename());
         doc.setFileType(file.getContentType());
         doc.setFileSize(file.getSize());
         doc.setCreatedAt(LocalDateTime.now());
         
-        // Simple text extraction for .txt, .md, .json, .csv
-        // For PDF/Word we would need libraries like Apache PDFBox or POI, skipping for MVP
         String content = "";
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             content = reader.lines().collect(Collectors.joining("\n"));
@@ -88,30 +104,110 @@ public class KnowledgeService {
         
         doc.setContent(content);
         documentMapper.insert(doc);
+        
+        // Chunk and save to vector store
+        try {
+            TokenTextSplitter splitter = new TokenTextSplitter();
+            List<String> chunks = splitter.split(content, 500); // 500 tokens per chunk
+            
+            List<Document> documents = chunks.stream().map(chunk -> 
+                new Document(chunk, Map.of(
+                    "kbId", kbId,
+                    "docId", doc.getId(),
+                    "filename", doc.getFilename()
+                ))
+            ).collect(Collectors.toList());
+            
+            vectorStore.add(documents);
+        } catch (Exception e) {
+            System.err.println("Failed to vectorize document: " + e.getMessage());
+            // Optionally rollback db insert or throw error
+        }
+        
         return doc;
     }
-    
-    public List<Document> getDocuments(Long kbId) {
-        QueryWrapper<Document> query = new QueryWrapper<>();
+
+    public List<com.promptgenie.entity.Document> getDocuments(Long kbId) {
+        QueryWrapper<com.promptgenie.entity.Document> query = new QueryWrapper<>();
         query.eq("kb_id", kbId).orderByDesc("created_at");
         // Exclude content for list view to save bandwidth
-        query.select(Document.class, info -> !info.getColumn().equals("content"));
+        query.select(com.promptgenie.entity.Document.class, info -> !info.getColumn().equals("content"));
         return documentMapper.selectList(query);
     }
 
     public void deleteDocument(Long docId) {
         documentMapper.deleteById(docId);
+        // Delete from vector store using filter expression
+        // Requires more complex filter string for pgvector store, for now we skip deletion in vector DB
+        // or clear the vector db entirely if needed.
     }
-    
-    public String getKnowledgeContext(Long kbId) {
-        QueryWrapper<Document> query = new QueryWrapper<>();
+
+    public String getKnowledgeContext(Long kbId, Long userId, String queryStr) {
+        // Get limits
+        GenieConfig.QuotaLimits limits = quotaService.getKbLimits(userId);
+        int maxDocs = limits.getMaxKbDocs() != null ? limits.getMaxKbDocs() : 3; // mapped to topK
+        int maxChars = limits.getMaxKbContextChars() != null ? limits.getMaxKbContextChars() : 2000;
+        
+        if (queryStr == null || queryStr.trim().isEmpty()) {
+            // Fallback to basic DB fetch if no query
+            return fetchBasicContext(kbId, maxDocs, maxChars);
+        }
+
+        try {
+            List<Document> similarDocuments = vectorStore.similaritySearch(
+                SearchRequest.query(queryStr)
+                    .withTopK(maxDocs)
+                    .withFilterExpression("kbId == '" + kbId + "'")
+            );
+
+            if (similarDocuments.isEmpty()) {
+                return "No relevant context found in knowledge base.";
+            }
+
+            StringBuilder context = new StringBuilder();
+            for (Document doc : similarDocuments) {
+                String filename = (String) doc.getMetadata().get("filename");
+                String content = doc.getContent();
+                
+                String docStr = "--- Document: " + (filename != null ? filename : "Unknown") + " ---\n" + content + "\n\n";
+                if (context.length() + docStr.length() > maxChars) {
+                    int remaining = maxChars - context.length();
+                    if (remaining > 50) {
+                        context.append(docStr.substring(0, remaining)).append("... [Truncated]\n");
+                    }
+                    break;
+                }
+                context.append(docStr);
+            }
+            return context.toString();
+        } catch (Exception e) {
+            System.err.println("Vector search failed: " + e.getMessage());
+            return fetchBasicContext(kbId, maxDocs, maxChars);
+        }
+    }
+
+    private String fetchBasicContext(Long kbId, int maxDocs, int maxChars) {
+        QueryWrapper<com.promptgenie.entity.Document> query = new QueryWrapper<>();
         query.eq("kb_id", kbId);
-        List<Document> docs = documentMapper.selectList(query);
+        List<com.promptgenie.entity.Document> docs = documentMapper.selectList(query);
         
         StringBuilder context = new StringBuilder();
-        for (Document doc : docs) {
-            context.append("--- Document: ").append(doc.getFilename()).append(" ---\n");
-            context.append(doc.getContent()).append("\n\n");
+        int currentDocs = 0;
+        
+        for (com.promptgenie.entity.Document doc : docs) {
+            if (currentDocs >= maxDocs) break;
+            if (doc.getContent() == null) continue;
+            
+            String docStr = "--- Document: " + doc.getFilename() + " ---\n" + doc.getContent() + "\n\n";
+            if (context.length() + docStr.length() > maxChars) {
+                int remaining = maxChars - context.length();
+                if (remaining > 50) {
+                    context.append(docStr.substring(0, remaining)).append("... [Truncated]\n");
+                }
+                break;
+            }
+            context.append(docStr);
+            currentDocs++;
         }
         return context.toString();
     }

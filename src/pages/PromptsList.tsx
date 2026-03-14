@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { promptService } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
+import { useWorkspaceStore } from '@/store/workspaceStore';
 import { Prompt } from '@/types';
 import { useTranslation } from 'react-i18next';
 import BackButton from '@/components/BackButton';
+import toast from 'react-hot-toast';
+import { Dialog } from '@headlessui/react';
 
 export default function PromptsList() {
   const { t, i18n } = useTranslation();
@@ -14,14 +17,20 @@ export default function PromptsList() {
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  
+  // Move Prompt State
+  const [movePromptId, setMovePromptId] = useState<string | null>(null);
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>('');
+  
   const user = useAuthStore((state) => state.user);
+  const { workspaces, currentWorkspace } = useWorkspaceStore();
 
   useEffect(() => {
     if (user?.id) {
       fetchPrompts();
       fetchTags();
     }
-  }, [user?.id, search, tagFilter]);
+  }, [user?.id, search, tagFilter, currentWorkspace]); // Reload when workspace changes
 
   const fetchTags = async () => {
     if (!user?.id) return;
@@ -36,7 +45,7 @@ export default function PromptsList() {
   const fetchPrompts = async () => {
     try {
       if (!user?.id) return;
-      const data = await promptService.getAll(search, tagFilter);
+      const data = await promptService.getAll(search, tagFilter, currentWorkspace?.id);
       setPrompts(data);
     } catch (err: any) {
       console.error('Failed to fetch prompts', err);
@@ -44,6 +53,20 @@ export default function PromptsList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleMove = async () => {
+      if (!movePromptId || !targetWorkspaceId) return;
+      try {
+          await promptService.move(movePromptId, targetWorkspaceId);
+          toast.success(t('prompts.moved_success'));
+          setMovePromptId(null);
+          setTargetWorkspaceId('');
+          fetchPrompts(); // Refresh
+      } catch (err: any) {
+          console.error(err);
+          toast.error('Failed to move prompt: ' + (err.response?.data?.message || err.message));
+      }
   };
 
   const handleDelete = async (id: string) => {
@@ -175,6 +198,15 @@ export default function PromptsList() {
                   >
                     {t('common.edit')}
                   </Link>
+                  {/* Only show Move if in personal workspace (currentWorkspace is null) */}
+                  {!currentWorkspace && (
+                    <button
+                        onClick={() => { setMovePromptId(prompt.id); setTargetWorkspaceId(workspaces[0]?.id || ''); }}
+                        className="col-span-1 rounded border border-orange-200 px-2 py-1.5 text-sm font-semibold text-orange-600 hover:bg-orange-50"
+                    >
+                        Move
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(prompt.id)}
                     className="col-span-2 rounded border border-red-200 px-2 py-1.5 text-sm font-semibold text-red-600 hover:bg-red-50"
@@ -186,6 +218,39 @@ export default function PromptsList() {
             ))}
           </div>
         )}
+
+        {/* Move Dialog */}
+        <Dialog open={!!movePromptId} onClose={() => setMovePromptId(null)} className="relative z-50">
+            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <div className="fixed inset-0 flex items-center justify-center p-4">
+                <Dialog.Panel className="w-full max-w-sm rounded bg-white p-6 shadow-xl">
+                    <Dialog.Title className="text-lg font-bold mb-4">Move Prompt to Workspace</Dialog.Title>
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Select Target Workspace</label>
+                        <select 
+                            className="w-full border rounded px-3 py-2"
+                            value={targetWorkspaceId}
+                            onChange={e => setTargetWorkspaceId(e.target.value)}
+                        >
+                            {workspaces.map(ws => (
+                                <option key={ws.id} value={ws.id}>{ws.name}</option>
+                            ))}
+                        </select>
+                        {workspaces.length === 0 && <p className="text-red-500 text-xs mt-1">No workspaces available. Create one first.</p>}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                        <button onClick={() => setMovePromptId(null)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+                        <button 
+                            onClick={handleMove} 
+                            disabled={!targetWorkspaceId}
+                            className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 rounded disabled:opacity-50"
+                        >
+                            Move
+                        </button>
+                    </div>
+                </Dialog.Panel>
+            </div>
+        </Dialog>
       </div>
     </div>
   );

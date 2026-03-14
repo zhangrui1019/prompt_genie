@@ -17,7 +17,9 @@ public class KnowledgeBase {
     @TableField("user_id")
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
-
+    
+    private Long workspaceId;
+    
     private String name;
 
     private String description;

@@ -56,6 +56,8 @@ export interface PromptChain {
   title: string;
   description?: string;
   steps: ChainStep[];
+  reactFlowNodes?: string;
+  reactFlowEdges?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -2,6 +2,18 @@ server:
   port: 8080
 
 spring:
+  ai:
+    openai:
+      api-key: ${DASHSCOPE_API_KEY:sk-86a648a8ba4148019d316773e7fb8637}
+      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
+      embedding:
+        options:
+          model: text-embedding-v2
+    vectorstore:
+      pgvector:
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
   sql:
     init:
       mode: always
@@ -14,10 +26,10 @@ spring:
       password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
   datasource:
-    url: ${DB_URL:jdbc:mysql://gz-cdb-fymdy539.sql.tencentcdb.com:25764/prompt_genie?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:Cdb@348#4}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prompt_genie}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
 
 mybatis-plus:
   configuration:
@@ -43,21 +55,79 @@ genie:
   dashscope:
     video-submit-url: "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis"
     task-status-url: "https://dashscope.aliyuncs.com/api/v1/tasks/"
-    pricing:
+    models:
       text:
-        qwen-turbo:
-          input: 0.002
-          output: 0.006
-        qwen-plus:
-          input: 0.004
-          output: 0.012
-        qwen-max:
-          input: 0.04
-          output: 0.12
+        qwen-turbo: "Qwen Turbo"
+        qwen-plus: "Qwen Plus"
+        qwen-max: "Qwen Max"
       image:
+        wanx-v1: "Wanx V1"
+        wanx-sketch-to-image-v1: "Wanx Sketch"
+      video:
+        wan2.6-t2v: "Wan 2.6 (1080P)"
+        wanx2.1-t2v-turbo: "Wanx 2.1 Turbo (720P)"
+        wanx2.1-t2v-plus: "Wanx 2.1 Plus (720P)"
+  
+  pricing:
+    text:
+      # DashScope
+      qwen-turbo:
+        input: 0.002
+        output: 0.006
+      qwen-plus:
+        input: 0.004
+        output: 0.012
+      qwen-max:
+        input: 0.04
+        output: 0.12
+      # OpenAI / DeepSeek / Moonshot (Examples)
+      gpt-4o:
+        input: 0.03
+        output: 0.06
+      deepseek-chat:
+        input: 0.001
+        output: 0.002
+    image:
         wanx-v1: 0.2
+        dall-e-3: 0.5
       video:
         default: 2.0
+  
+  # Providers Configuration (Examples)
+  providers:
+    openai:
+      # DeepSeek Example
+      # deepseek:
+      #   base-url: https://api.deepseek.com
+      #   api-key: sk-xxxxxxxx
+      #   models:
+      #     - deepseek-chat
+      #     - deepseek-coder
+      #   model-type: text
+      
+      # Moonshot Example
+      # moonshot:
+      #   base-url: https://api.moonshot.cn/v1
+      #   api-key: sk-xxxxxxxx
+      #   models:
+      #     - moonshot-v1-8k
+      #   model-type: text
+
+  quota:
+    free:
+      daily-prompts: 50
+      max-batch-rows: 5
+      max-chain-steps: 3
+      max-evaluation-rows: 5
+      max-kb-docs: 3
+      max-kb-context-chars: 2000
+    pro:
+      daily-prompts: 2000
+      max-batch-rows: 1000
+      max-chain-steps: 20
+      max-evaluation-rows: 500
+      max-kb-docs: 50
+      max-kb-context-chars: 50000
 
 jasypt:
   encryptor:

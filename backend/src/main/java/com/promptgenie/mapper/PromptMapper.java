@@ -7,8 +7,15 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import java.util.List;
 
+import org.apache.ibatis.annotations.Select;
+import java.util.List;
+
 @Mapper
 public interface PromptMapper extends BaseMapper<Prompt> {
+    
+    @Select("SELECT * FROM prompts WHERE workspace_id = #{workspaceId} ORDER BY created_at DESC")
+    List<Prompt> selectByWorkspaceId(Long workspaceId);
+}
     
     @Select("SELECT * FROM prompts WHERE user_id = #{userId} ORDER BY created_at DESC")
     List<Prompt> selectByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);

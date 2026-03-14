@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { promptService } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
@@ -20,6 +20,7 @@ export default function BatchRun() {
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -104,10 +105,13 @@ export default function BatchRun() {
     if (!selectedPromptId || rows.length === 0) return;
     setIsRunning(true);
     setProgress(0);
+    
+    // Create new AbortController
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     // Reset results in rows
-    const newRows = rows.map(r => ({ ...r, _result: t('batch.pending'), _status: 'pending' }));
-    setRows(newRows);
+    setRows(prev => prev.map(r => ({ ...r, _result: t('batch.pending'), _status: 'pending', _error: undefined })));
 
     try {
       // Use fetch for SSE
@@ -115,11 +119,13 @@ export default function BatchRun() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
         },
         body: JSON.stringify({
           promptId: selectedPromptId,
-          rows: newRows
-        })
+          rows: rows // Pass current rows
+        }),
+        signal
       });
 
       if (!response.body) throw new Error('No response body');
@@ -137,17 +143,79 @@ export default function BatchRun() {
         buffer = lines.pop() || ''; // Keep incomplete data
 
         for (const line of lines) {
-          if (line.startsWith('data:')) {
-            const jsonStr = line.substring(5).trim();
-            if (jsonStr === 'Batch processing finished') {
-               setIsRunning(false);
-               break;
+            if (!line.trim()) continue;
+            if (line.startsWith('data:')) {
+                const jsonStr = line.substring(5).trim();
+                
+                // Check for completion message
+                if (jsonStr === 'Batch processing finished') {
+                   setIsRunning(false);
+                   toast.success(t('batch.completed'));
+                   break;
+                }
+                
+                // Check for error message
+                if (jsonStr.startsWith('Error processing row')) {
+                    // Try to extract row index if possible, or just toast
+                    // Format: "Error processing row 5: ..."
+                    const match = jsonStr.match(/row (\d+): (.*)/);
+                    if (match) {
+                        const rowIndex = parseInt(match[1]);
+                        const errorMsg = match[2];
+                        setRows(prev => {
+                            const updated = [...prev];
+                            if (updated[rowIndex]) {
+                                updated[rowIndex] = { ...updated[rowIndex], _result: 'Error', _status: 'failed', _error: errorMsg };
+                            }
+                            return updated;
+                        });
+                    }
+                    continue;
+                }
+
+                try {
+                   const data = JSON.parse(jsonStr);
+                   if (data._rowIndex !== undefined) {
+                     // Update row result
+                     setRows(prev => {
+                        const updated = [...prev];
+                        if (updated[data._rowIndex]) {
+                            updated[data._rowIndex] = { 
+                                ...updated[data._rowIndex], 
+                                _result: data._result, 
+                                _status: 'completed',
+                                _error: undefined
+                            };
+                        }
+                        return updated;
+                     });
+                     setProgress(prev => prev + 1);
+                   }
+                } catch (e) {
+                    console.error('Failed to parse SSE data', e);
+                }
             }
-            try {
-               const data = JSON.parse(jsonStr);
-               if (data._rowIndex !== undefined) {
-                 // Update row result
-                 setRows(prev => {
+        }
+      }
+    } catch (err: any) {
+        if (err.name === 'AbortError') {
+            toast.error(t('batch.cancelled'));
+        } else {
+            console.error('Batch run failed', err);
+            toast.error(t('batch.failed'));
+        }
+    } finally {
+      setIsRunning(false);
+      abortControllerRef.current = null;
+    }
+  };
+
+  const handleCancel = () => {
+      if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          setIsRunning(false);
+      }
+  };
                    const updated = [...prev];
                    updated[data._rowIndex] = { 
                        ...updated[data._rowIndex], 
@@ -260,6 +328,15 @@ export default function BatchRun() {
             >
                 {isRunning ? `${t('playground.running')} (${progress}/${rows.length})...` : t('batch.start_button')}
             </button>
+            
+            {isRunning && (
+                <button
+                    onClick={handleCancel}
+                    className="w-full rounded border border-red-600 px-6 py-3 font-bold text-red-600 hover:bg-red-50"
+                >
+                    {t('common.cancel')}
+                </button>
+            )}
             
              <button
                 onClick={handleExport}

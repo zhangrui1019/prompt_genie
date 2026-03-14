@@ -48,11 +48,32 @@ api.interceptors.response.use(
   }
 );
 
+type ModelOption = { id: string; name: string };
+export type ModelCatalog = Record<string, ModelOption[]>;
+
+const DEFAULT_MODEL_CATALOG: ModelCatalog = {
+  text: [
+    { id: 'qwen-turbo', name: 'Qwen Turbo' },
+    { id: 'qwen-plus', name: 'Qwen Plus' },
+    { id: 'qwen-max', name: 'Qwen Max' },
+  ],
+  image: [
+    { id: 'wanx-v1', name: 'Wanx V1' },
+    { id: 'wanx-sketch-to-image-v1', name: 'Wanx Sketch' },
+  ],
+  video: [
+    { id: 'wan2.6-t2v', name: 'Wan 2.6 (1080P)' },
+    { id: 'wanx2.1-t2v-turbo', name: 'Wanx 2.1 Turbo (720P)' },
+    { id: 'wanx2.1-t2v-plus', name: 'Wanx 2.1 Plus (720P)' },
+  ],
+};
+
 export const promptService = {
-  getAll: async (search?: string, tag?: string) => {
+  getAll: async (search?: string, tag?: string, workspaceId?: string) => {
     const params: Record<string, any> = {};
     if (search) params.search = search;
     if (tag) params.tag = tag;
+    if (workspaceId) params.workspaceId = workspaceId;
     
     const response = await api.get<Prompt[]>('/prompts', { params });
     return response.data;
@@ -79,6 +100,10 @@ export const promptService = {
     await api.delete(`/prompts/${id}`);
   },
 
+  move: async (id: string, workspaceId: string) => {
+    await api.put(`/prompts/${id}/move`, { workspaceId });
+  },
+
   getTags: async () => {
     const response = await api.get<string[]>('/prompts/tags');
     return response.data;
@@ -98,8 +123,8 @@ export const promptService = {
     await api.post(`/prompts/${promptId}/use`);
   },
 
-  fork: async (promptId: string) => {
-    const response = await api.post<Prompt>(`/prompts/${promptId}/fork`);
+  fork: async (id: string, workspaceId?: string) => {
+    const response = await api.post<Prompt>(`/prompts/${id}/fork`, { workspaceId });
     return response.data;
   },
 
@@ -124,6 +149,10 @@ export const promptService = {
     return response.data;
   },
 
+  moveChain: async (id: string, workspaceId: string) => {
+    await api.put(`/chains/${id}/move`, { workspaceId });
+  },
+
   updateChain: async (id: string, chain: Partial<PromptChain>) => {
     const response = await api.put<PromptChain>(`/chains/${id}`, chain);
     return response.data;
@@ -139,13 +168,13 @@ export const promptService = {
   },
 
   // Comments
-  getComments: async (promptId: string) => {
-    const response = await api.get<any[]>(`/prompts/${promptId}/comments`);
+  getComments: async (id: string) => {
+    const response = await api.get<any[]>(`/prompts/${id}/comments`);
     return response.data;
   },
 
-  addComment: async (promptId: string, content: string) => {
-    const response = await api.post<any>(`/prompts/${promptId}/comments`, { content });
+  addComment: async (id: string, content: string) => {
+    const response = await api.post<any>(`/prompts/${id}/comments`, { content });
     return response.data;
   },
 
@@ -173,6 +202,15 @@ export const promptService = {
   restoreVersion: async (promptId: string, versionId: string) => {
     const response = await api.post<Prompt>(`/prompts/${promptId}/restore/${versionId}`);
     return response.data;
+  },
+
+  getModelCatalog: async () => {
+    try {
+      const response = await api.get<ModelCatalog>('/playground/models');
+      return response.data;
+    } catch {
+      return DEFAULT_MODEL_CATALOG;
+    }
   },
 
   runPlayground: async (prompt: string, variables: Record<string, any>, modelType?: string, modelName?: string, parameters?: Record<string, any>) => {
@@ -210,6 +248,10 @@ export const promptService = {
   createKnowledgeBase: async (name: string, description: string) => {
     const response = await api.post<any>('/knowledge', { name, description });
     return response.data;
+  },
+
+  moveKnowledgeBase: async (id: string, workspaceId: string) => {
+    await api.put(`/knowledge/${id}/move`, { workspaceId });
   },
 
   deleteKnowledgeBase: async (id: string) => {

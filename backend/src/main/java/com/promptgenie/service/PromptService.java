@@ -266,4 +266,22 @@ public class PromptService extends ServiceImpl<PromptMapper, Prompt> {
         
         return prompt;
     }
+
+    public List<Prompt> getByWorkspaceId(Long workspaceId) {
+        List<Prompt> prompts = baseMapper.selectByWorkspaceId(workspaceId);
+        loadTagsForPrompts(prompts);
+        return prompts;
+    }
+
+    @Transactional
+    public void movePromptToWorkspace(Long promptId, Long targetWorkspaceId) {
+        Prompt prompt = getById(promptId);
+        if (prompt == null) {
+            throw new RuntimeException("Prompt not found");
+        }
+        prompt.setWorkspaceId(targetWorkspaceId);
+        updateById(prompt);
+    }
+
+    Prompt forkPrompt(Long promptId, Long userId, Long targetWorkspaceId);
 }

@@ -6,25 +6,8 @@ import { Prompt, ChainStep } from '@/types';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
 import BackButton from '@/components/BackButton';
-import ChainCanvas from '@/components/ChainCanvas';
+import WorkflowEditor from '@/components/canvas/WorkflowEditor';
 import { CHAIN_TEMPLATES, ChainTemplate } from '@/data/chainTemplates';
-
-const MODELS: Record<string, { id: string; name: string }[]> = {
-  text: [
-    { id: 'qwen-turbo', name: 'Qwen Turbo' },
-    { id: 'qwen-plus', name: 'Qwen Plus' },
-    { id: 'qwen-max', name: 'Qwen Max' },
-  ],
-  image: [
-    { id: 'wanx-v1', name: 'Wanx V1' },
-    { id: 'wanx-sketch-to-image-v1', name: 'Wanx Sketch' },
-  ],
-  video: [
-    { id: 'wan2.6-t2v', name: 'Wan 2.6 (1080P)' },
-    { id: 'wanx2.1-t2v-turbo', name: 'Wanx 2.1 Turbo (720P)' },
-    { id: 'wanx2.1-t2v-plus', name: 'Wanx 2.1 Plus (720P)' },
-  ],
-};
 
 export default function ChainEditor() {
   const { t } = useTranslation();
@@ -36,9 +19,13 @@ export default function ChainEditor() {
   const [description, setDescription] = useState('');
   const [steps, setSteps] = useState<ChainStep[]>([]);
   const [availablePrompts, setAvailablePrompts] = useState<Prompt[]>([]);
+  const [modelCatalog, setModelCatalog] = useState<Record<string, { id: string; name: string }[]>>({});
   const [loading, setLoading] = useState(!!id);
   const [viewMode, setViewMode] = useState<'list' | 'canvas'>('list');
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
+  
+  const [reactFlowNodes, setReactFlowNodes] = useState<string>('[]');
+  const [reactFlowEdges, setReactFlowEdges] = useState<string>('[]');
   
   // Execution
   const [isRunning, setIsRunning] = useState(false);
@@ -50,10 +37,14 @@ export default function ChainEditor() {
   useEffect(() => {
     if (user?.id) {
       promptService.getAll().then(setAvailablePrompts);
+      promptService.getModelCatalog().then(setModelCatalog);
       if (id) {
         promptService.getChain(id).then(chain => {
           setTitle(chain.title);
           setDescription(chain.description || '');
+          setReactFlowNodes(chain.reactFlowNodes || '[]');
+          setReactFlowEdges(chain.reactFlowEdges || '[]');
+          
           // Ensure steps have stepOrder
           const loadedSteps = chain.steps || [];
           if (loadedSteps.length > 0 && loadedSteps[0].stepOrder === undefined) {
@@ -103,7 +94,7 @@ export default function ChainEditor() {
 
     // If type changed, reset model name to default and clear params
     if (field === 'modelType') {
-        newSteps[index].modelName = MODELS[value as string]?.[0]?.id || '';
+        newSteps[index].modelName = modelCatalog[value as string]?.[0]?.id || '';
         // Reset params based on type
         if (value === 'video') newSteps[index].parameters = JSON.stringify({ size: '1280*720', duration: 5, prompt_extend: true });
         else if (value === 'image') newSteps[index].parameters = JSON.stringify({ size: '1024*1024', n: 1 });
@@ -135,7 +126,7 @@ export default function ChainEditor() {
             targetVariable: '', 
             stepOrder: maxOrder + 1, 
             modelType: 'text',
-            modelName: 'qwen-turbo',
+            modelName: modelCatalog.text?.[0]?.id || 'qwen-turbo',
             parameters: JSON.stringify({ temperature: 0.8, top_p: 0.8 })
         }]);
     };
@@ -146,7 +137,7 @@ export default function ChainEditor() {
             targetVariable: '', 
             stepOrder: order, 
             modelType: 'text',
-            modelName: 'qwen-turbo',
+            modelName: modelCatalog.text?.[0]?.id || 'qwen-turbo',
             parameters: JSON.stringify({ temperature: 0.8, top_p: 0.8 })
         }]);
     };
@@ -183,7 +174,9 @@ export default function ChainEditor() {
     const chainData = { 
       title,
       description,
-      steps: steps
+      steps: steps,
+      reactFlowNodes,
+      reactFlowEdges
     };
 
     try {
@@ -325,23 +318,24 @@ export default function ChainEditor() {
             </div>
 
             {/* Middle Column: Steps (Canvas) */}
-            <div className="lg:col-span-2 space-y-8">
-                <div className="flex justify-between items-center">
+            <div className="lg:col-span-2 space-y-8 h-[600px] flex flex-col">
+                <div className="flex justify-between items-center shrink-0">
                     <h2 className="text-lg font-bold text-gray-800">Workflow Stages</h2>
                 </div>
                 
                 {viewMode === 'canvas' ? (
-                    <ChainCanvas 
-                        steps={steps} 
-                        prompts={availablePrompts} 
-                        onNodeClick={(idx) => {
-                            // Optional: Scroll to list view or open sidebar editor
-                            setViewMode('list');
-                            // In a real app we might highlight the step or open a side panel
-                        }} 
-                    />
+                    <div className="flex-1 min-h-[600px] border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                        <WorkflowEditor 
+                            initialNodesJson={reactFlowNodes} 
+                            initialEdgesJson={reactFlowEdges}
+                            onChange={(nodes, edges) => {
+                                setReactFlowNodes(JSON.stringify(nodes));
+                                setReactFlowEdges(JSON.stringify(edges));
+                            }}
+                        />
+                    </div>
                 ) : (
-                    <>
+                    <div className="flex-1 overflow-auto">
                     {sortedOrders.map((order, stageIndex) => (
                     <div key={order} className="relative">
                         <div className="absolute -left-4 top-0 bottom-0 w-0.5 bg-gray-200" style={{ display: stageIndex === sortedOrders.length - 1 ? 'none' : 'block' }}></div>
@@ -436,7 +430,7 @@ export default function ChainEditor() {
                                                     onChange={e => handleUpdateStep(step._originalIndex, 'modelName', e.target.value)}
                                                 >
                                                     <option value="">{t('common.default')}</option>
-                                                    {MODELS[step.modelType || 'text']?.map(m => (
+                                                    {modelCatalog[step.modelType || 'text']?.map(m => (
                                                         <option key={m.id} value={m.id}>{m.name}</option>
                                                     ))}
                                                 </select>
@@ -656,7 +650,7 @@ export default function ChainEditor() {
                         <span className="text-xl">+</span> {t('chains.add_stage')}
                     </button>
                 </div>
-                </>
+                </div>
                 )}
             </div>
 

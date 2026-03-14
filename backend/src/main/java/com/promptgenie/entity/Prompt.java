@@ -22,6 +22,8 @@ public class Prompt {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
     
+    private Long workspaceId;
+    
     private String title;
     
     private String content;

@@ -137,8 +137,11 @@ public class VideoGenerationStrategy implements GenerationStrategy {
     }
 
     @Override
-    public boolean supports(String modelType) {
-        return "video".equalsIgnoreCase(modelType);
+    public boolean supports(String modelType, String modelName) {
+        if (!"video".equalsIgnoreCase(modelType)) {
+            return false;
+        }
+        return modelName == null || modelName.isEmpty() || modelName.toLowerCase().startsWith("wan");
     }
 
     @Override
@@ -146,7 +149,12 @@ public class VideoGenerationStrategy implements GenerationStrategy {
         String name = modelName != null ? modelName.toLowerCase() : "wanx2.1-t2v-turbo";
         Map<String, Double> prices = genieConfig.getPricing().getVideo();
         
-        Double price = prices.getOrDefault(name, prices.get("default"));
+        Double price = null;
+        if (prices != null) {
+            price = prices.get(name);
+            if (price == null) price = prices.get("default");
+        }
+        
         if (price == null) price = 2.0;
         
         return price;

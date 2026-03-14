@@ -1,3 +1,6 @@
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
 -- Users Table
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY,
@@ -6,24 +9,49 @@ CREATE TABLE IF NOT EXISTS users (
     name VARCHAR(100),
     plan VARCHAR(20) DEFAULT 'free',
     api_key VARCHAR(255),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Workspaces Table
+CREATE TABLE IF NOT EXISTS workspaces (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    owner_id BIGINT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (owner_id) REFERENCES users(id)
+);
+
+-- Workspace Members Table
+CREATE TABLE IF NOT EXISTS workspace_members (
+    id BIGINT PRIMARY KEY,
+    workspace_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    role VARCHAR(20) NOT NULL DEFAULT 'viewer', -- owner, editor, viewer
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE (workspace_id, user_id)
+);
 
 -- Prompts Table
 CREATE TABLE IF NOT EXISTS prompts (
     id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    workspace_id BIGINT,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    variables JSON,
+    variables JSONB,
     is_public BOOLEAN DEFAULT FALSE,
     likes_count INT DEFAULT 0,
     usage_count INT DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+);
 
 -- Prompt Versions Table
 CREATE TABLE IF NOT EXISTS prompt_versions (
@@ -33,9 +61,9 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
     title VARCHAR(255),
     content TEXT NOT NULL,
     change_note VARCHAR(500),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Optimizations Table
 CREATE TABLE IF NOT EXISTS optimizations (
@@ -43,12 +71,12 @@ CREATE TABLE IF NOT EXISTS optimizations (
     user_id BIGINT NOT NULL,
     prompt_id BIGINT,
     model VARCHAR(50) NOT NULL,
-    suggestions JSON,
+    suggestions JSONB,
     improvement_score DECIMAL(3,2),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Tags Table
 CREATE TABLE IF NOT EXISTS tags (
@@ -57,18 +85,22 @@ CREATE TABLE IF NOT EXISTS tags (
     name VARCHAR(50) NOT NULL,
     color VARCHAR(20),
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Prompt Chains Table
 CREATE TABLE IF NOT EXISTS prompt_chains (
     id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    workspace_id BIGINT,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    react_flow_nodes JSONB,
+    react_flow_edges JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+);
 
 -- Chain Steps Table
 CREATE TABLE IF NOT EXISTS chain_steps (
@@ -79,50 +111,52 @@ CREATE TABLE IF NOT EXISTS chain_steps (
     target_variable VARCHAR(100),
     model_type VARCHAR(20) DEFAULT 'text',
     model_name VARCHAR(50),
-    parameters JSON,
-    input_mappings JSON,
+    parameters JSONB,
+    input_mappings JSONB,
     FOREIGN KEY (chain_id) REFERENCES prompt_chains(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Prompt Likes Table
 CREATE TABLE IF NOT EXISTS prompt_likes (
     id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     prompt_id BIGINT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
-    UNIQUE KEY uk_user_prompt (user_id, prompt_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    UNIQUE (user_id, prompt_id)
+);
 
 -- Playground History Table
 CREATE TABLE IF NOT EXISTS playground_history (
     id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
     prompt TEXT,
-    variables JSON,
+    variables JSONB,
     model_type VARCHAR(20),
     model_name VARCHAR(50),
-    parameters JSON,
+    parameters JSONB,
     result TEXT,
     input_tokens INT DEFAULT 0,
     output_tokens INT DEFAULT 0,
     cost DECIMAL(10, 6) DEFAULT 0.0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Knowledge Bases Table
 CREATE TABLE IF NOT EXISTS knowledge_bases (
     id BIGINT PRIMARY KEY,
     user_id BIGINT NOT NULL,
+    workspace_id BIGINT,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+);
 
 -- Documents Table
 CREATE TABLE IF NOT EXISTS documents (
@@ -130,11 +164,11 @@ CREATE TABLE IF NOT EXISTS documents (
     kb_id BIGINT NOT NULL,
     filename VARCHAR(255) NOT NULL,
     file_type VARCHAR(50),
-    content LONGTEXT,
+    content TEXT,
     file_size BIGINT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (kb_id) REFERENCES knowledge_bases(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Comments Table
 CREATE TABLE IF NOT EXISTS comments (
@@ -142,10 +176,10 @@ CREATE TABLE IF NOT EXISTS comments (
     user_id BIGINT NOT NULL,
     prompt_id BIGINT NOT NULL,
     content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
 
 -- Evaluation Jobs Table
 CREATE TABLE IF NOT EXISTS evaluation_jobs (
@@ -155,22 +189,22 @@ CREATE TABLE IF NOT EXISTS evaluation_jobs (
     name VARCHAR(255),
     status VARCHAR(50) NOT NULL, -- PENDING, RUNNING, COMPLETED, FAILED
     dataset_path VARCHAR(512),
-    model_configs JSON,
-    evaluation_dimensions JSON,
+    model_configs JSONB,
+    evaluation_dimensions JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_user_id (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_eval_user_id ON evaluation_jobs(user_id);
 
 -- Evaluation Results Table
 CREATE TABLE IF NOT EXISTS evaluation_results (
     id BIGINT PRIMARY KEY,
     job_id BIGINT NOT NULL,
-    input_data JSON,
-    model_outputs JSON,
-    scores JSON,
+    input_data JSONB,
+    model_outputs JSONB,
+    scores JSONB,
     latency BIGINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_job_id (job_id),
     FOREIGN KEY (job_id) REFERENCES evaluation_jobs(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+);
+CREATE INDEX IF NOT EXISTS idx_eval_job_id ON evaluation_results(job_id);

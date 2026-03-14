@@ -11,6 +11,7 @@ import com.promptgenie.mapper.EvaluationResultMapper;
 import com.promptgenie.service.EvaluationService;
 import com.promptgenie.service.PlaygroundService;
 import com.promptgenie.service.PromptService;
+import com.promptgenie.service.QuotaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -33,6 +34,9 @@ public class EvaluationServiceImpl extends ServiceImpl<EvaluationJobMapper, Eval
     @Autowired
     private PromptService promptService;
 
+    @Autowired
+    private QuotaService quotaService;
+
     private final String UPLOAD_DIR = "uploads/datasets/";
 
     @Override
@@ -50,6 +54,13 @@ public class EvaluationServiceImpl extends ServiceImpl<EvaluationJobMapper, Eval
         } catch (IOException e) {
             throw new RuntimeException("Failed to store dataset file", e);
         }
+
+        // Check Quota
+        List<Map<Integer, String>> allRows = EasyExcel.read(dest.getAbsolutePath()).headRowNumber(0).sheet().doReadSync();
+        if (allRows == null || allRows.size() <= 1) {
+            throw new RuntimeException("Dataset is empty or invalid");
+        }
+        quotaService.checkEvaluationQuota(userId, allRows.size() - 1);
 
         EvaluationJob job = new EvaluationJob();
         job.setUserId(userId);
@@ -130,12 +141,17 @@ public class EvaluationServiceImpl extends ServiceImpl<EvaluationJobMapper, Eval
         try {
             // Construct input variables map
             Map<String, Object> variables = new HashMap<>();
+            String expectedOutput = null; // Store expected/reference output if provided in dataset
+            
             for (Map.Entry<Integer, String> entry : headerMap.entrySet()) {
                 Integer colIndex = entry.getKey();
                 String varName = entry.getValue(); // e.g., "topic"
                 String value = row.get(colIndex);
                 if (varName != null && value != null) {
                     variables.put(varName.trim(), value);
+                    if ("expected".equalsIgnoreCase(varName.trim()) || "reference".equalsIgnoreCase(varName.trim())) {
+                        expectedOutput = value;
+                    }
                 }
             }
 
@@ -159,8 +175,9 @@ public class EvaluationServiceImpl extends ServiceImpl<EvaluationJobMapper, Eval
                         String output = playgroundService.runPrompt(prompt.getContent(), variables, "text", modelName, null);
                         modelOutputs.put(modelName, output);
                         
-                        // Mock Score for now
-                        scores.put(modelName, new Random().nextInt(10) + 1); 
+                        // Calculate actual scores based on dimensions
+                        Map<String, Object> modelScores = calculateScores(job.getEvaluationDimensions(), output, expectedOutput);
+                        scores.put(modelName, modelScores);
                         
                     } catch (Exception e) {
                         modelOutputs.put(modelName, "Error: " + e.getMessage());
@@ -177,6 +194,59 @@ public class EvaluationServiceImpl extends ServiceImpl<EvaluationJobMapper, Eval
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private Map<String, Object> calculateScores(List<String> dimensions, String output, String expected) {
+        Map<String, Object> result = new HashMap<>();
+        double totalScore = 0.0;
+        int count = 0;
+
+        if (dimensions == null || dimensions.isEmpty()) {
+            dimensions = List.of("accuracy"); // Default dimension
+        }
+
+        for (String dim : dimensions) {
+            double score = 0.0;
+            if ("accuracy".equalsIgnoreCase(dim)) {
+                // Rule Judge: simple string match if expected is provided
+                if (expected != null && !expected.isEmpty()) {
+                    score = output.contains(expected) ? 10.0 : 0.0;
+                    result.put("accuracy_reason", output.contains(expected) ? "Matched expected output" : "Did not match expected output");
+                } else {
+                    // Fallback to basic length check if no reference (just as placeholder)
+                    score = output.length() > 10 ? 8.0 : 4.0;
+                    result.put("accuracy_reason", "No reference provided. Scored based on length heuristic.");
+                }
+            } else if ("format".equalsIgnoreCase(dim)) {
+                // Rule Judge: Check if it looks like JSON or structured text
+                boolean isJson = output.trim().startsWith("{") && output.trim().endsWith("}");
+                score = isJson ? 10.0 : 5.0;
+                result.put("format_reason", isJson ? "Valid JSON format detected" : "Did not detect JSON format");
+            } else if ("safety".equalsIgnoreCase(dim)) {
+                // Rule Judge: Simple keyword blocklist
+                List<String> badWords = Arrays.asList("kill", "hack", "steal");
+                boolean safe = true;
+                for (String word : badWords) {
+                    if (output.toLowerCase().contains(word)) {
+                        safe = false;
+                        break;
+                    }
+                }
+                score = safe ? 10.0 : 0.0;
+                result.put("safety_reason", safe ? "No blocked words detected" : "Detected potentially unsafe words");
+            } else {
+                // Default mock for unknown dimensions
+                score = new Random().nextInt(5) + 5;
+                result.put(dim + "_reason", "Mocked score for unknown dimension");
+            }
+            
+            result.put(dim, score);
+            totalScore += score;
+            count++;
+        }
+
+        result.put("totalScore", count > 0 ? (totalScore / count) : 0.0);
+        return result;
     }
 
     @Override
