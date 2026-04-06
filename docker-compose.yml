@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  lb:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-lb.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - backend
+    restart: always
+
+  backend:
+    build: .
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/prompt_genie
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_SESSION_STORE_TYPE=jdbc
+    depends_on:
+      - db
+    restart: always
+    deploy:
+      replicas: 3
+
+  db:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=prompt_genie
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.frontend
+    environment:
+      - REACT_APP_API_URL=http://localhost/api
+    depends_on:
+      - lb
+    restart: always
+    deploy:
+      replicas: 2
+
+volumes:
+  postgres_data:

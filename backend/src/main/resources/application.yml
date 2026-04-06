@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: prompt-genie-backend
+  main:
+    allow-bean-definition-overriding: true
+    allow-circular-references: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/prompt_genie
+    username: postgres
+    password: qmhd@123456
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  # redis:
+  #   host: localhost
+  #   port: 6379
+  #   password: ''
+  #   timeout: 10000
+  ai:
+    openai:
+      api-key: sk-placeholder-key
+    pgvector:
+      enabled: false
+
+server:
+  port: 8090
+  servlet:
+    context-path: /api
+
+jwt:
+  secret: cGFyYW1ldHJhZ2luZ3Jlc3BvbnNlX2FwcGxpY2F0aW9uX3NlY3JldA==
+  expiration: 86400000
+
+genie:
+  auth:
+    invitation-code:
+  admin:
+    emails: system@promptgenie.com

@@ -1,0 +1,7 @@
+com\promptgenie\service\PlaygroundServiceTest.class
+com\promptgenie\service\PromptServiceTest.class
+com\promptgenie\controller\PromptControllerTest.class
+com\promptgenie\service\edge\EdgeCoordinatorTest$2.class
+com\promptgenie\service\edge\EdgeCoordinatorTest$1.class
+com\promptgenie\service\edge\EdgeCoordinatorTest.class
+com\promptgenie\WorkflowIntegrationTest.class

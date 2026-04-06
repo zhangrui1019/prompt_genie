@@ -1,0 +1,35 @@
+package com.promptgenie.prompt.mapper;
+
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.promptgenie.prompt.entity.Tag;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+import java.util.List;
+
+@Mapper
+public interface TagMapper extends BaseMapper<Tag> {
+    
+    @Select("SELECT * FROM tags WHERE prompt_id = #{promptId}")
+    List<Tag> selectByPromptId(@Param("promptId") Long promptId);
+
+    @Select("<script>" +
+            "SELECT DISTINCT name FROM tags " +
+            "<if test='userId != null'>" +
+            "WHERE prompt_id IN (SELECT id FROM prompts WHERE user_id = #{userId}) " +
+            "</if>" +
+            "</script>")
+    List<String> selectDistinctTagsByUserId(@Param("userId") Long userId);
+    
+    @Delete("DELETE FROM tags WHERE prompt_id = #{promptId}")
+    void deleteByPromptId(@Param("promptId") Long promptId);
+
+    @Select("<script>" +
+            "SELECT * FROM tags WHERE prompt_id IN " +
+            "<foreach item='item' collection='promptIds' open='(' separator=',' close=')'>" +
+            "#{item}" +
+            "</foreach>" +
+            "</script>")
+    List<Tag> selectByPromptIds(@Param("promptIds") List<Long> promptIds);
+}

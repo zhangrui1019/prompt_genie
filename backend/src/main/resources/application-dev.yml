@@ -1,0 +1,15 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/prompt_genie}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:qmhd@123456}
+
+jwt:
+  secret: ${JWT_SECRET:cHJvbXB0LWdlbmllLWRldi1qd3Qtc2VjcmV0LXBscy1jaGFuZ2U=}
+
+genie:
+  admin:
+    emails: ${GENIE_ADMIN_EMAILS:}
