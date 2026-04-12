@@ -27,12 +27,22 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       isLoading: false,
 
       fetchWorkspaces: async () => {
+        // Check if user is logged in by checking for access_token
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          // User is not logged in, set workspaces to empty array
+          set({ workspaces: [], isLoading: false });
+          return;
+        }
+        
         set({ isLoading: true });
         try {
           const workspaces = await workspaceService.getAll();
           set({ workspaces });
         } catch (error) {
           console.error('Failed to fetch workspaces', error);
+          // If error occurs, set workspaces to empty array
+          set({ workspaces: [] });
         } finally {
           set({ isLoading: false });
         }

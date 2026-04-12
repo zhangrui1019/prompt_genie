@@ -25,7 +25,6 @@ import AgentEcosystem from "@/pages/AgentEcosystem";
 import AnalyticsReporting from "@/pages/AnalyticsReporting";
 import SecurityCompliance from "@/pages/SecurityCompliance";
 import AdvancedWorkflows from "@/pages/AdvancedWorkflows";
-import ThirdPartyIntegrations from "@/pages/ThirdPartyIntegrations";
 import V2Dashboard from "@/pages/V2Dashboard";
 import AdvancedAIAssist from "@/pages/AdvancedAIAssist";
 import CrossPlatformCollaboration from "@/pages/CrossPlatformCollaboration";
@@ -84,7 +83,6 @@ export default function App() {
         <Route path="/analytics" element={<AnalyticsReporting />} />
         <Route path="/security" element={<SecurityCompliance />} />
         <Route path="/workflows" element={<AdvancedWorkflows />} />
-        <Route path="/integrations" element={<ThirdPartyIntegrations />} />
         <Route path="/v2/dashboard" element={<V2Dashboard />} />
         <Route path="/v2/ai-assist" element={<AdvancedAIAssist />} />
         <Route path="/v2/collaboration" element={<CrossPlatformCollaboration />} />

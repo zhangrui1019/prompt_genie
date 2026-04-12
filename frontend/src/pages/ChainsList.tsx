@@ -24,6 +24,8 @@ export default function ChainsList() {
   useEffect(() => {
     if (user?.id) {
       fetchChains();
+    } else {
+      setLoading(false);
     }
   }, [user?.id, currentWorkspace]); // Reload on workspace change
 

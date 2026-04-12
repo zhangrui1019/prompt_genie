@@ -24,15 +24,15 @@ export default function EvaluationCreate() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const availableDimensions = [
-      { id: 'accuracy', label: 'Accuracy (Requires "expected" column)', desc: 'Checks if output matches expected' },
-      { id: 'format', label: 'Format (JSON)', desc: 'Checks if output is valid JSON' },
-      { id: 'safety', label: 'Safety', desc: 'Checks for blocked keywords' },
-      { id: 'llm_judge', label: 'LLM-as-a-Judge', desc: 'Uses GPT-4 to evaluate output quality' }
+      { id: 'accuracy', label: '准确性（需要expected列）', desc: '检查输出是否与预期匹配' },
+      { id: 'format', label: '格式（JSON）', desc: '检查输出是否为有效 JSON' },
+      { id: 'safety', label: '安全性', desc: '检查是否包含被屏蔽的关键词' },
+      { id: 'llm_judge', label: 'LLM 评判', desc: '使用 GPT-4 评估输出质量' }
   ];
 
   useEffect(() => {
     if (user?.id) {
-      promptService.getAll(user.id).then(setPrompts);
+      promptService.getAll().then(setPrompts);
       promptService.getModelCatalog().then(catalog => {
         const list = catalog.text || [];
         setAvailableModels(list);
@@ -157,30 +157,70 @@ export default function EvaluationCreate() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="mx-auto max-w-2xl">
-        <BackButton to="/evaluations" label={t('evaluations.back')} />
-        <h1 className="text-3xl font-bold mt-4 mb-8">{t('evaluations.create_title')}</h1>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 relative overflow-hidden p-6">
+      {/* Background SVG lines */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <svg className="w-full h-full" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="rgba(59, 130, 246, 0.15)" />
+              <stop offset="100%" stopColor="rgba(139, 92, 246, 0.15)" />
+            </linearGradient>
+          </defs>
+          <line 
+            x1="50" y1="150" x2="950" y2="150" 
+            stroke="url(#lineGradient)" 
+            strokeWidth="1" 
+            strokeDasharray="30,15" 
+            className="animate-draw-line"
+          />
+          <line 
+            x1="50" y1="350" x2="950" y2="350" 
+            stroke="url(#lineGradient)" 
+            strokeWidth="1" 
+            strokeDasharray="20,20" 
+            className="animate-draw-line animation-delay-200"
+          />
+          <line 
+            x1="50" y1="550" x2="950" y2="550" 
+            stroke="url(#lineGradient)" 
+            strokeWidth="1" 
+            strokeDasharray="15,25" 
+            className="animate-draw-line animation-delay-400"
+          />
+          <line 
+            x1="50" y1="750" x2="950" y2="750" 
+            stroke="url(#lineGradient)" 
+            strokeWidth="1" 
+            strokeDasharray="25,10" 
+            className="animate-draw-line animation-delay-600"
+          />
+        </svg>
+      </div>
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
+      <div className="mx-auto max-w-2xl z-10">
+        <BackButton to="/evaluations" label={t('evaluations.back')} />
+        <h1 className="text-3xl font-bold mt-4 mb-8 text-white">{t('evaluations.create_title')}</h1>
+
+        <form onSubmit={handleSubmit} className="bg-gray-800/60 rounded-lg shadow p-6 space-y-6 border border-gray-700">
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('evaluations.name_label')}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('evaluations.name_label')}</label>
                 <input 
                     type="text" 
                     value={name} 
                     onChange={e => setName(e.target.value)} 
-                    className="w-full border rounded px-3 py-2" 
+                    className="w-full border border-gray-600 bg-gray-800 text-gray-300 rounded px-3 py-2" 
                     placeholder={t('evaluations.name_placeholder')}
                     required 
                 />
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('evaluations.select_prompt')}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('evaluations.select_prompt')}</label>
                 <select 
                     value={selectedPromptId} 
                     onChange={e => setSelectedPromptId(e.target.value)} 
-                    className="w-full border rounded px-3 py-2"
+                    className="w-full border border-gray-600 bg-gray-800 text-gray-300 rounded px-3 py-2"
                     required
                 >
                     <option value="">-- {t('evaluations.select_prompt')} --</option>
@@ -191,18 +231,18 @@ export default function EvaluationCreate() {
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{t('evaluations.dataset_label')}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('evaluations.dataset_label')}</label>
                 <input 
                     type="file" 
                     accept=".csv,.xlsx" 
                     onChange={handleFileUpload}
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-900/30 file:text-blue-400 hover:file:bg-blue-800/50"
                     required
                 />
-                <p className="text-xs text-gray-500 mt-1">{t('evaluations.dataset_tip')}</p>
+                <p className="text-xs text-gray-400 mt-1">{t('evaluations.dataset_tip')}</p>
                 
                 {validationErrors.length > 0 && (
-                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+                    <div className="mt-2 p-2 bg-red-900/30 border border-red-800 rounded text-xs text-red-400">
                         <p className="font-bold mb-1">Validation Errors:</p>
                         <ul className="list-disc list-inside">
                             {validationErrors.map((err, i) => (
@@ -213,22 +253,22 @@ export default function EvaluationCreate() {
                 )}
 
                 {datasetPreview.length > 0 && (
-                    <div className="mt-2 border rounded overflow-hidden">
-                        <div className="bg-gray-50 px-3 py-1 text-xs font-bold text-gray-500 uppercase">Preview (Top 5 rows)</div>
+                    <div className="mt-2 border border-gray-700 rounded overflow-hidden">
+                        <div className="bg-gray-700/50 px-3 py-1 text-xs font-bold text-gray-300 uppercase">Preview (Top 5 rows)</div>
                         <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-gray-700">
+                                <thead className="bg-gray-700/50">
                                     <tr>
                                         {datasetHeaders.map((h, i) => (
-                                            <th key={i} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
+                                            <th key={i} className="px-3 py-2 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">{h}</th>
                                         ))}
                                     </tr>
                                 </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
+                                <tbody className="bg-gray-800/40 divide-y divide-gray-700">
                                     {datasetPreview.map((row, i) => (
-                                        <tr key={i}>
+                                        <tr key={i} className="hover:bg-gray-700/30">
                                             {datasetHeaders.map((h, j) => (
-                                                <td key={j} className="px-3 py-2 whitespace-nowrap text-xs text-gray-900">{row[h]}</td>
+                                                <td key={j} className="px-3 py-2 whitespace-nowrap text-xs text-gray-300">{row[h]}</td>
                                             ))}
                                         </tr>
                                     ))}
@@ -240,15 +280,15 @@ export default function EvaluationCreate() {
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('evaluations.compare_models')}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t('evaluations.compare_models')}</label>
                 <div className="space-y-2">
                     {availableModels.map(model => (
-                        <label key={model.id} className="flex items-center space-x-2">
+                        <label key={model.id} className="flex items-center space-x-2 text-gray-300">
                             <input 
                                 type="checkbox" 
                                 checked={models.includes(model.id)} 
                                 onChange={() => handleModelToggle(model.id)}
-                                className="rounded text-blue-600 focus:ring-blue-500"
+                                className="rounded text-blue-400 focus:ring-blue-500"
                             />
                             <span>{model.name}</span>
                         </label>
@@ -257,19 +297,19 @@ export default function EvaluationCreate() {
             </div>
 
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Evaluation Dimensions</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">评测维度</label>
                 <div className="space-y-3">
                     {availableDimensions.map(dim => (
-                        <label key={dim.id} className="flex items-start space-x-3 cursor-pointer p-2 rounded hover:bg-gray-50">
+                        <label key={dim.id} className="flex items-start space-x-3 cursor-pointer p-2 rounded hover:bg-gray-700/30">
                             <input 
                                 type="checkbox" 
                                 checked={selectedDimensions.includes(dim.id)} 
                                 onChange={() => handleDimensionToggle(dim.id)}
-                                className="mt-1 rounded text-blue-600 focus:ring-blue-500"
+                                className="mt-1 rounded text-blue-400 focus:ring-blue-500"
                             />
                             <div>
-                                <div className="font-medium text-gray-800">{dim.label}</div>
-                                <div className="text-xs text-gray-500">{dim.desc}</div>
+                                <div className="font-medium text-white">{dim.label}</div>
+                                <div className="text-xs text-gray-400">{dim.desc}</div>
                             </div>
                         </label>
                     ))}
@@ -279,7 +319,7 @@ export default function EvaluationCreate() {
             <button 
                 type="submit" 
                 disabled={isSubmitting || !file || selectedDimensions.length === 0}
-                className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 disabled:opacity-50"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded font-bold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50"
             >
                 {isSubmitting ? t('evaluations.creating') : t('evaluations.start_button')}
             </button>

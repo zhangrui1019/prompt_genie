@@ -285,7 +285,18 @@
     "model_outputs": "模型输出",
     "score": "评分",
     "no_results": "暂无结果，请等待任务完成。",
-    "loading": "加载中..."
+    "loading": "加载中...",
+    "dimensions": {
+      "title": "评测维度",
+      "accuracy": "准确性（需要expected列）",
+      "accuracy_desc": "检查输出是否与预期匹配",
+      "format": "格式（JSON）",
+      "format_desc": "检查输出是否为有效 JSON",
+      "safety": "安全性",
+      "safety_desc": "检查是否包含被屏蔽的关键词",
+      "llm_judge": "LLM 评判",
+      "llm_judge_desc": "使用 GPT-4 评估输出质量"
+    }
   },
   "landing": {
     "features": "功能特性",
@@ -311,7 +322,7 @@
     "feat_4_title": "私人素材库",
     "feat_4_desc": "上传你的文档或过往作品，让 AI 学习你的独特风格。",
     "feat_5_title": "灵感社区",
-    "feat_5_desc": "一键克隆高手的“生产配方”，像使用滤镜一样简单。",
+    "feat_5_desc": "一键克隆高手的生产配方，像使用滤镜一样简单。",
     "feat_6_title": "团队协作",
     "feat_6_desc": "与团队共享工作流和素材，高效协同创作。",
     "cta_title": "准备好十倍提升创作效率了吗？",
