@@ -132,7 +132,6 @@ D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\edge\Task
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\edge\EdgeAgentExecutor.java
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\PrivateModelService.java
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\workspace\service\TeamWorkspaceService.java
-D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\entity\Version.java
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\AuditLogService.java
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\MonitoringService.java
 D:\rui\code\prompt_genie\backend\src\main\java\com\promptgenie\service\PlaygroundService.java
